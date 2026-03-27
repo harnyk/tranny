@@ -1,0 +1,22 @@
+version: '3'
+
+tasks:
+  build:
+    cmds:
+      - go build -o tranny .
+
+  install:
+    cmds:
+      - go install .
+
+  run:
+    cmds:
+      - go run . {{.CLI_ARGS}}
+
+  lint:
+    cmds:
+      - go vet ./...
+
+  clean:
+    cmds:
+      - rm -f tranny
