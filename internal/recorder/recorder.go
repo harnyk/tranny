@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 
 	"github.com/harnyk/tranny/internal/config"
 )
@@ -65,6 +66,9 @@ func (r *Recorder) Record(ctx context.Context, outputPath string) error {
 	cmd := exec.Command(r.cfg.FFmpegBin, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	// Run ffmpeg in its own process group so the terminal's Ctrl+C SIGINT
+	// doesn't reach it directly — we send the single clean SIGINT ourselves.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start ffmpeg: %w", err)
