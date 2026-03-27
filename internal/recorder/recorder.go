@@ -40,6 +40,8 @@ func (r *Recorder) Record(ctx context.Context, outputPath string) error {
 		// Mix system + mic audio
 		"-filter_complex", "[1:a][2:a]amix=inputs=2:normalize=0[mix]",
 		"-map", "0:v",
+		"-map", "1:a",
+		"-map", "2:a",
 		"-map", "[mix]",
 
 		// Video codec
@@ -49,7 +51,12 @@ func (r *Recorder) Record(ctx context.Context, outputPath string) error {
 		"-c:a", "aac", "-b:a", "160k",
 
 		// Track metadata
-		"-metadata:s:a:0", "title=mix",
+		"-metadata:s:a:0", "title=system",
+		"-metadata:s:a:1", "title=mic",
+		"-metadata:s:a:2", "title=mix",
+		"-disposition:a:0", "0",
+		"-disposition:a:1", "0",
+		"-disposition:a:2", "default",
 
 		"-y",
 		outputPath,
