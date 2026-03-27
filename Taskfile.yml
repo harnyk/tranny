@@ -17,6 +17,10 @@ tasks:
     cmds:
       - go vet ./...
 
+  uninstall:
+    cmds:
+      - rm -f $(go env GOPATH)/bin/tranny
+
   clean:
     cmds:
       - rm -f tranny
