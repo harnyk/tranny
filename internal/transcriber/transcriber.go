@@ -59,6 +59,7 @@ func (t *Transcriber) TranscribeMeeting(ctx context.Context, m *meeting.MeetingD
 	}
 
 	var sb strings.Builder
+	fmt.Fprintf(&sb, "---\nmeeting: %s\n---\n\n", filepath.Base(m.Path))
 	for i, path := range mp3s {
 		chunkNum := i + 1
 		fmt.Fprintf(os.Stderr, "Transcribing chunk %03d/%03d: %s\n", chunkNum, len(mp3s), filepath.Base(path))
