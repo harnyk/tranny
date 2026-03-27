@@ -1,0 +1,10 @@
+# Binary
+tranny
+
+# Meeting data directories (large files)
+*/record.mkv
+*/record-*.mp3
+*/transcript.txt
+
+# Go
+*.test
