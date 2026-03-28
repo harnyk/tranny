@@ -7,14 +7,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"strings"
 	"time"
 )
 
 const inventoryFile = "tranny.json"
-
-// Legacy profile file — written by tranny before tranny.json was introduced.
-const profileFile = ".tranny-profile"
 
 var nonAlphanumRe = regexp.MustCompile(`[^a-zA-Z0-9]+`)
 
@@ -38,9 +34,7 @@ type MeetingDir struct {
 	Path      string
 	Name      string
 	Time      time.Time
-	Inventory *Inventory // nil for dirs created before tranny.json was introduced
-	// profileName is kept only for backward compat with old .tranny-profile dirs.
-	profileName string
+	Inventory *Inventory
 }
 
 // NewMeetingDir creates a new meeting directory under baseDir.
@@ -73,10 +67,7 @@ func Detect(cwd string) (*MeetingDir, error) {
 		return nil, fmt.Errorf("no recording found in %s — run 'tranny rec' first", cwd)
 	}
 	m := &MeetingDir{Path: cwd}
-	if err := m.readInventory(); err != nil {
-		// tranny.json absent: try legacy .tranny-profile for backward compat
-		_ = m.readLegacyProfile()
-	}
+	_ = m.readInventory() // best-effort; missing file is fine for old dirs
 	return m, nil
 }
 
@@ -103,16 +94,6 @@ func (m *MeetingDir) readInventory() error {
 	return nil
 }
 
-// readLegacyProfile reads .tranny-profile written by tranny before tranny.json.
-func (m *MeetingDir) readLegacyProfile() error {
-	data, err := os.ReadFile(filepath.Join(m.Path, profileFile))
-	if err != nil {
-		return err
-	}
-	m.profileName = strings.TrimSpace(string(data))
-	return nil
-}
-
 // RecordingPath returns the absolute path to the recording file.
 // Uses the inventory when available; falls back to probing the filesystem.
 func (m *MeetingDir) RecordingPath() (string, error) {
@@ -133,17 +114,11 @@ func (m *MeetingDir) RecordingPath() (string, error) {
 }
 
 // AudioMapForFFmpeg returns the ffmpeg stream specifier for the mix audio track.
-// Uses the inventory when available; otherwise uses a legacy fallback.
 func (m *MeetingDir) AudioMapForFFmpeg() (string, error) {
 	if m.Inventory != nil && m.Inventory.AudioMap != "" {
 		return m.Inventory.AudioMap, nil
 	}
-	// Legacy fallback for dirs with only .tranny-profile.
-	// These constants mirror the AudioMap values in recorder/profiles.go.
-	if m.profileName == "telegram" || m.profileName == "lowres" {
-		return "0:a:0", nil
-	}
-	return "0:a:m:title:mix", nil // "default" profile
+	return "", fmt.Errorf("no audio map in tranny.json — re-record or set audio_map manually")
 }
 
 // RecordPath returns the path for a recording with the given file extension (without dot).
