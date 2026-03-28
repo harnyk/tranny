@@ -19,49 +19,21 @@ func New(cfg *config.Config) *Recorder {
 	return &Recorder{cfg: cfg}
 }
 
-// Record starts ffmpeg screen+audio recording. Blocks until ctx is cancelled.
-// Sends SIGINT to ffmpeg on cancellation so it can flush the MKV moov atom cleanly.
-func (r *Recorder) Record(ctx context.Context, outputPath string) error {
+// Record starts ffmpeg screen+audio recording using the given profile.
+// Blocks until ctx is cancelled.
+// Sends SIGINT to ffmpeg on cancellation so it can flush the moov atom cleanly.
+func (r *Recorder) Record(ctx context.Context, outputPath string, profile *Profile) error {
 	monitor, mic, err := detectPulseAudioSources()
 	if err != nil {
 		return fmt.Errorf("detect PulseAudio sources: %w", err)
 	}
 
-	args := []string{
-		"-f", "x11grab",
-		"-framerate", "30",
-		"-i", r.cfg.Display,
-
-		"-f", "pulse",
-		"-i", monitor,
-
-		"-f", "pulse",
-		"-i", mic,
-
-		// Mix system + mic audio
-		"-filter_complex", "[1:a][2:a]amix=inputs=2:normalize=0[mix]",
-		"-map", "0:v",
-		"-map", "1:a",
-		"-map", "2:a",
-		"-map", "[mix]",
-
-		// Video codec
-		"-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
-
-		// Audio codec
-		"-c:a", "aac", "-b:a", "160k",
-
-		// Track metadata
-		"-metadata:s:a:0", "title=system",
-		"-metadata:s:a:1", "title=mic",
-		"-metadata:s:a:2", "title=mix",
-		"-disposition:a:0", "0",
-		"-disposition:a:1", "0",
-		"-disposition:a:2", "default",
-
-		"-y",
-		outputPath,
+	params := RecordingParams{
+		Display: r.cfg.Display,
+		Monitor: monitor,
+		Mic:     mic,
 	}
+	args := profile.BuildArgs(params, outputPath)
 
 	cmd := exec.Command(r.cfg.FFmpegBin, args...)
 	cmd.Stdout = os.Stdout

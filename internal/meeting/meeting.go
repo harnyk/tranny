@@ -47,6 +47,11 @@ func (m *MeetingDir) RecordMKVPath() string {
 	return filepath.Join(m.Path, "record.mkv")
 }
 
+// RecordPath returns the path for a recording with the given file extension (without dot).
+func (m *MeetingDir) RecordPath(ext string) string {
+	return filepath.Join(m.Path, "record."+ext)
+}
+
 // MP3Pattern returns the ffmpeg segment output pattern (1-indexed, zero-padded).
 func (m *MeetingDir) MP3Pattern() string {
 	return filepath.Join(m.Path, "record-%03d.mp3")
