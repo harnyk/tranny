@@ -9,12 +9,20 @@ type RecordingParams struct {
 	Mic     string // PulseAudio mic source
 }
 
+// TrackInfo describes an audio track produced by a profile.
+type TrackInfo struct {
+	Index       int
+	Title       string
+	Description string
+}
+
 // Profile defines a set of ffmpeg parameters for a recording session.
 type Profile struct {
 	Name        string
 	Description string
-	Ext         string // output file extension without dot, e.g. "mkv" or "mp4"
-	AudioMap    string // ffmpeg stream specifier used to extract audio (for mp3/transcript)
+	Ext         string      // output file extension without dot, e.g. "mkv" or "mp4"
+	AudioMap    string      // ffmpeg stream specifier used to extract audio (for mp3/transcript)
+	AudioTracks []TrackInfo // describes the audio tracks written into the recording
 	BuildArgs   func(p RecordingParams, outputPath string) []string
 }
 
@@ -41,6 +49,11 @@ var profileDefault = &Profile{
 	Description: "Full quality: 3 audio tracks (system, mic, mix), libx264 veryfast crf23, MKV",
 	Ext:         "mkv",
 	AudioMap:    "0:a:m:title:mix",
+	AudioTracks: []TrackInfo{
+		{Index: 0, Title: "system", Description: "Desktop audio (PulseAudio monitor)"},
+		{Index: 1, Title: "mic", Description: "Microphone input"},
+		{Index: 2, Title: "mix", Description: "System + mic amix blend (used for transcription)"},
+	},
 	BuildArgs: func(p RecordingParams, outputPath string) []string {
 		return []string{
 			"-f", "x11grab",
@@ -83,6 +96,9 @@ var profileTelegram = &Profile{
 	Description: "Telegram-compatible MP4: 1280px wide, crf28 ultrafast, mix audio only, faststart",
 	Ext:         "mp4",
 	AudioMap:    "0:a:0",
+	AudioTracks: []TrackInfo{
+		{Index: 0, Title: "mix", Description: "System + mic amix blend"},
+	},
 	BuildArgs: func(p RecordingParams, outputPath string) []string {
 		return []string{
 			"-f", "x11grab",
@@ -121,6 +137,9 @@ var profileLowres = &Profile{
 	Description: "Low-res MP4: 1280px wide, 15fps, crf22 veryfast, mix audio only — readable text, smaller file",
 	Ext:         "mp4",
 	AudioMap:    "0:a:0",
+	AudioTracks: []TrackInfo{
+		{Index: 0, Title: "mix", Description: "System + mic amix blend"},
+	},
 	BuildArgs: func(p RecordingParams, outputPath string) []string {
 		return []string{
 			"-f", "x11grab",

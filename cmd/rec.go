@@ -39,8 +39,18 @@ var recCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		if err := m.WriteProfile(profile.Name); err != nil {
-			return fmt.Errorf("write profile: %w", err)
+
+		tracks := make([]meeting.AudioTrack, len(profile.AudioTracks))
+		for i, t := range profile.AudioTracks {
+			tracks[i] = meeting.AudioTrack{Index: t.Index, Title: t.Title, Description: t.Description}
+		}
+		inv := &meeting.Inventory{
+			RecordingFile: "record." + profile.Ext,
+			AudioMap:      profile.AudioMap,
+			AudioTracks:   tracks,
+		}
+		if err := m.WriteInventory(inv); err != nil {
+			return fmt.Errorf("write inventory: %w", err)
 		}
 
 		outputPath := m.RecordPath(profile.Ext)

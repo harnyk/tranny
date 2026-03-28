@@ -8,7 +8,6 @@ import (
 
 	"github.com/harnyk/tranny/internal/config"
 	"github.com/harnyk/tranny/internal/meeting"
-	"github.com/harnyk/tranny/internal/recorder"
 )
 
 // segmentTime is computed as 23MB * 8 bits / 192kbps = 963 seconds
@@ -33,14 +32,14 @@ func (c *Converter) Convert(ctx context.Context, m *meeting.MeetingDir) (*Result
 		return nil, err
 	}
 
-	profile, err := recorder.GetProfile(m.ProfileName)
+	audioMap, err := m.AudioMapForFFmpeg()
 	if err != nil {
 		return nil, err
 	}
 
 	args := []string{
 		"-i", inputPath,
-		"-map", profile.AudioMap,
+		"-map", audioMap,
 		"-vn",
 		"-ar", "44100",
 		"-ac", "1",

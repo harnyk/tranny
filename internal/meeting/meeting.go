@@ -1,6 +1,7 @@
 package meeting
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,15 +11,36 @@ import (
 	"time"
 )
 
+const inventoryFile = "tranny.json"
+
+// Legacy profile file — written by tranny before tranny.json was introduced.
 const profileFile = ".tranny-profile"
 
 var nonAlphanumRe = regexp.MustCompile(`[^a-zA-Z0-9]+`)
 
+// AudioTrack describes a single audio track in the recording file.
+type AudioTrack struct {
+	Index       int    `json:"index"`
+	Title       string `json:"title,omitempty"`
+	Description string `json:"description"`
+}
+
+// Inventory is the self-describing metadata file written by 'tranny rec'.
+// It captures enough information for downstream commands (mp3, compress,
+// transcript) to operate correctly even if profile definitions change later.
+type Inventory struct {
+	RecordingFile string       `json:"recording_file"` // e.g. "record.mkv"
+	AudioMap      string       `json:"audio_map"`      // ffmpeg stream specifier for the mix track
+	AudioTracks   []AudioTrack `json:"audio_tracks"`
+}
+
 type MeetingDir struct {
-	Path        string
-	Name        string
-	Time        time.Time
-	ProfileName string // recording profile used; defaults to "default"
+	Path      string
+	Name      string
+	Time      time.Time
+	Inventory *Inventory // nil for dirs created before tranny.json was introduced
+	// profileName is kept only for backward compat with old .tranny-profile dirs.
+	profileName string
 }
 
 // NewMeetingDir creates a new meeting directory under baseDir.
@@ -38,7 +60,7 @@ func NewMeetingDir(baseDir, name string) (*MeetingDir, error) {
 }
 
 // Detect finds a meeting directory by looking for a recording file in cwd.
-// Reads the profile name from .tranny-profile if present; defaults to "default".
+// Reads tranny.json if present; falls back to .tranny-profile for old dirs.
 func Detect(cwd string) (*MeetingDir, error) {
 	found := false
 	for _, ext := range []string{"mkv", "mp4"} {
@@ -50,28 +72,57 @@ func Detect(cwd string) (*MeetingDir, error) {
 	if !found {
 		return nil, fmt.Errorf("no recording found in %s — run 'tranny rec' first", cwd)
 	}
-	m := &MeetingDir{Path: cwd, ProfileName: "default"}
-	_ = m.readProfile() // best-effort; missing file is fine
+	m := &MeetingDir{Path: cwd}
+	if err := m.readInventory(); err != nil {
+		// tranny.json absent: try legacy .tranny-profile for backward compat
+		_ = m.readLegacyProfile()
+	}
 	return m, nil
 }
 
-// WriteProfile saves the profile name to .tranny-profile in the meeting dir.
-func (m *MeetingDir) WriteProfile(name string) error {
-	m.ProfileName = name
-	return os.WriteFile(filepath.Join(m.Path, profileFile), []byte(name), 0644)
+// WriteInventory saves the inventory to tranny.json in the meeting dir.
+func (m *MeetingDir) WriteInventory(inv *Inventory) error {
+	m.Inventory = inv
+	data, err := json.MarshalIndent(inv, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal inventory: %w", err)
+	}
+	return os.WriteFile(filepath.Join(m.Path, inventoryFile), data, 0644)
 }
 
-func (m *MeetingDir) readProfile() error {
+func (m *MeetingDir) readInventory() error {
+	data, err := os.ReadFile(filepath.Join(m.Path, inventoryFile))
+	if err != nil {
+		return err
+	}
+	var inv Inventory
+	if err := json.Unmarshal(data, &inv); err != nil {
+		return fmt.Errorf("parse tranny.json: %w", err)
+	}
+	m.Inventory = &inv
+	return nil
+}
+
+// readLegacyProfile reads .tranny-profile written by tranny before tranny.json.
+func (m *MeetingDir) readLegacyProfile() error {
 	data, err := os.ReadFile(filepath.Join(m.Path, profileFile))
 	if err != nil {
 		return err
 	}
-	m.ProfileName = strings.TrimSpace(string(data))
+	m.profileName = strings.TrimSpace(string(data))
 	return nil
 }
 
-// RecordingPath returns the path to the actual recording file (mkv or mp4).
+// RecordingPath returns the absolute path to the recording file.
+// Uses the inventory when available; falls back to probing the filesystem.
 func (m *MeetingDir) RecordingPath() (string, error) {
+	if m.Inventory != nil && m.Inventory.RecordingFile != "" {
+		p := filepath.Join(m.Path, m.Inventory.RecordingFile)
+		if _, err := os.Stat(p); err == nil {
+			return p, nil
+		}
+	}
+	// Fallback: probe for known extensions
 	for _, ext := range []string{"mkv", "mp4"} {
 		p := filepath.Join(m.Path, "record."+ext)
 		if _, err := os.Stat(p); err == nil {
@@ -81,8 +132,18 @@ func (m *MeetingDir) RecordingPath() (string, error) {
 	return "", fmt.Errorf("no recording file found in %s", m.Path)
 }
 
-func (m *MeetingDir) RecordMKVPath() string {
-	return filepath.Join(m.Path, "record.mkv")
+// AudioMapForFFmpeg returns the ffmpeg stream specifier for the mix audio track.
+// Uses the inventory when available; otherwise uses a legacy fallback.
+func (m *MeetingDir) AudioMapForFFmpeg() (string, error) {
+	if m.Inventory != nil && m.Inventory.AudioMap != "" {
+		return m.Inventory.AudioMap, nil
+	}
+	// Legacy fallback for dirs with only .tranny-profile.
+	// These constants mirror the AudioMap values in recorder/profiles.go.
+	if m.profileName == "telegram" || m.profileName == "lowres" {
+		return "0:a:0", nil
+	}
+	return "0:a:m:title:mix", nil // "default" profile
 }
 
 // RecordPath returns the path for a recording with the given file extension (without dot).

@@ -8,7 +8,6 @@ import (
 
 	"github.com/harnyk/tranny/internal/config"
 	"github.com/harnyk/tranny/internal/meeting"
-	"github.com/harnyk/tranny/internal/recorder"
 )
 
 type Compressor struct {
@@ -26,7 +25,7 @@ func (c *Compressor) Compress(ctx context.Context, m *meeting.MeetingDir) (strin
 		return "", err
 	}
 
-	profile, err := recorder.GetProfile(m.ProfileName)
+	audioMap, err := m.AudioMapForFFmpeg()
 	if err != nil {
 		return "", err
 	}
@@ -36,7 +35,7 @@ func (c *Compressor) Compress(ctx context.Context, m *meeting.MeetingDir) (strin
 	args := []string{
 		"-i", inputPath,
 		"-map", "0:v:0",
-		"-map", profile.AudioMap,
+		"-map", audioMap,
 		"-c:v", "libx264",
 		"-profile:v", "main",
 		"-crf", "28",
