@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/harnyk/tranny/internal/compressor"
 	"github.com/harnyk/tranny/internal/config"
 	"github.com/harnyk/tranny/internal/converter"
 	"github.com/harnyk/tranny/internal/recorder"
@@ -16,6 +17,7 @@ var (
 	cfg   *config.Config
 	rec   *recorder.Recorder
 	conv  *converter.Converter
+	comp  *compressor.Compressor
 	trans *transcriber.Transcriber
 )
 
@@ -44,5 +46,6 @@ func initServices() {
 	}
 	rec = recorder.New(cfg)
 	conv = converter.New(cfg)
+	comp = compressor.New(cfg)
 	trans = transcriber.New(cfg)
 }

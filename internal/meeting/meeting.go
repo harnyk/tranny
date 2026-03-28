@@ -56,6 +56,10 @@ func (m *MeetingDir) TranscriptPath() string {
 	return filepath.Join(m.Path, "transcript.txt")
 }
 
+func (m *MeetingDir) CompressedMP4Path() string {
+	return filepath.Join(m.Path, "record-compressed.mp4")
+}
+
 // ListMP3s returns all record-NNN.mp3 files sorted lexicographically.
 func (m *MeetingDir) ListMP3s() ([]string, error) {
 	matches, err := filepath.Glob(filepath.Join(m.Path, "record-*.mp3"))
