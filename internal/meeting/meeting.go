@@ -114,11 +114,12 @@ func (m *MeetingDir) RecordingPath() (string, error) {
 }
 
 // AudioMapForFFmpeg returns the ffmpeg stream specifier for the mix audio track.
+// Falls back to the default profile's map for recordings made before tranny.json was introduced.
 func (m *MeetingDir) AudioMapForFFmpeg() (string, error) {
 	if m.Inventory != nil && m.Inventory.AudioMap != "" {
 		return m.Inventory.AudioMap, nil
 	}
-	return "", fmt.Errorf("no audio map in tranny.json — re-record or set audio_map manually")
+	return "0:a:m:title:mix", nil
 }
 
 // RecordPath returns the path for a recording with the given file extension (without dot).
