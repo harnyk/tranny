@@ -39,6 +39,9 @@ var recCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		if err := m.WriteProfile(profile.Name); err != nil {
+			return fmt.Errorf("write profile: %w", err)
+		}
 
 		outputPath := m.RecordPath(profile.Ext)
 

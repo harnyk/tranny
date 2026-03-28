@@ -8,6 +8,7 @@ import (
 
 	"github.com/harnyk/tranny/internal/config"
 	"github.com/harnyk/tranny/internal/meeting"
+	"github.com/harnyk/tranny/internal/recorder"
 )
 
 // segmentTime is computed as 23MB * 8 bits / 192kbps = 963 seconds
@@ -25,11 +26,21 @@ type Result struct {
 	Segments []string // absolute paths, sorted
 }
 
-// Convert extracts the "mix" audio track from record.mkv and segments it into MP3s.
+// Convert extracts the mix audio track from the recording and segments it into MP3s.
 func (c *Converter) Convert(ctx context.Context, m *meeting.MeetingDir) (*Result, error) {
+	inputPath, err := m.RecordingPath()
+	if err != nil {
+		return nil, err
+	}
+
+	profile, err := recorder.GetProfile(m.ProfileName)
+	if err != nil {
+		return nil, err
+	}
+
 	args := []string{
-		"-i", m.RecordMKVPath(),
-		"-map", "0:a:m:title:mix",
+		"-i", inputPath,
+		"-map", profile.AudioMap,
 		"-vn",
 		"-ar", "44100",
 		"-ac", "1",

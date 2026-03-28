@@ -8,6 +8,7 @@ import (
 
 	"github.com/harnyk/tranny/internal/config"
 	"github.com/harnyk/tranny/internal/meeting"
+	"github.com/harnyk/tranny/internal/recorder"
 )
 
 type Compressor struct {
@@ -18,14 +19,24 @@ func New(cfg *config.Config) *Compressor {
 	return &Compressor{cfg: cfg}
 }
 
-// Compress re-encodes record.mkv to a smaller H.264/AAC MP4 with only the mix audio track.
+// Compress re-encodes the recording to a smaller H.264/AAC MP4 with only the mix audio track.
 func (c *Compressor) Compress(ctx context.Context, m *meeting.MeetingDir) (string, error) {
+	inputPath, err := m.RecordingPath()
+	if err != nil {
+		return "", err
+	}
+
+	profile, err := recorder.GetProfile(m.ProfileName)
+	if err != nil {
+		return "", err
+	}
+
 	out := m.CompressedMP4Path()
 
 	args := []string{
-		"-i", m.RecordMKVPath(),
+		"-i", inputPath,
 		"-map", "0:v:0",
-		"-map", "0:a:m:title:mix",
+		"-map", profile.AudioMap,
 		"-c:v", "libx264",
 		"-profile:v", "main",
 		"-crf", "28",
@@ -48,4 +59,3 @@ func (c *Compressor) Compress(ctx context.Context, m *meeting.MeetingDir) (strin
 	}
 	return out, nil
 }
-

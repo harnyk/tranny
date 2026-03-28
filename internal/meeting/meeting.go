@@ -10,12 +10,15 @@ import (
 	"time"
 )
 
+const profileFile = ".tranny-profile"
+
 var nonAlphanumRe = regexp.MustCompile(`[^a-zA-Z0-9]+`)
 
 type MeetingDir struct {
-	Path string
-	Name string
-	Time time.Time
+	Path        string
+	Name        string
+	Time        time.Time
+	ProfileName string // recording profile used; defaults to "default"
 }
 
 // NewMeetingDir creates a new meeting directory under baseDir.
@@ -34,13 +37,48 @@ func NewMeetingDir(baseDir, name string) (*MeetingDir, error) {
 	return &MeetingDir{Path: absPath, Name: slug, Time: now}, nil
 }
 
-// Detect finds a meeting directory by looking for record.mkv in cwd.
+// Detect finds a meeting directory by looking for a recording file in cwd.
+// Reads the profile name from .tranny-profile if present; defaults to "default".
 func Detect(cwd string) (*MeetingDir, error) {
-	mkv := filepath.Join(cwd, "record.mkv")
-	if _, err := os.Stat(mkv); os.IsNotExist(err) {
-		return nil, fmt.Errorf("no record.mkv found in %s — run 'tranny rec' first", cwd)
+	found := false
+	for _, ext := range []string{"mkv", "mp4"} {
+		if _, err := os.Stat(filepath.Join(cwd, "record."+ext)); err == nil {
+			found = true
+			break
+		}
 	}
-	return &MeetingDir{Path: cwd}, nil
+	if !found {
+		return nil, fmt.Errorf("no recording found in %s — run 'tranny rec' first", cwd)
+	}
+	m := &MeetingDir{Path: cwd, ProfileName: "default"}
+	_ = m.readProfile() // best-effort; missing file is fine
+	return m, nil
+}
+
+// WriteProfile saves the profile name to .tranny-profile in the meeting dir.
+func (m *MeetingDir) WriteProfile(name string) error {
+	m.ProfileName = name
+	return os.WriteFile(filepath.Join(m.Path, profileFile), []byte(name), 0644)
+}
+
+func (m *MeetingDir) readProfile() error {
+	data, err := os.ReadFile(filepath.Join(m.Path, profileFile))
+	if err != nil {
+		return err
+	}
+	m.ProfileName = strings.TrimSpace(string(data))
+	return nil
+}
+
+// RecordingPath returns the path to the actual recording file (mkv or mp4).
+func (m *MeetingDir) RecordingPath() (string, error) {
+	for _, ext := range []string{"mkv", "mp4"} {
+		p := filepath.Join(m.Path, "record."+ext)
+		if _, err := os.Stat(p); err == nil {
+			return p, nil
+		}
+	}
+	return "", fmt.Errorf("no recording file found in %s", m.Path)
 }
 
 func (m *MeetingDir) RecordMKVPath() string {

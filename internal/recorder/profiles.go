@@ -14,6 +14,7 @@ type Profile struct {
 	Name        string
 	Description string
 	Ext         string // output file extension without dot, e.g. "mkv" or "mp4"
+	AudioMap    string // ffmpeg stream specifier used to extract audio (for mp3/transcript)
 	BuildArgs   func(p RecordingParams, outputPath string) []string
 }
 
@@ -39,6 +40,7 @@ var profileDefault = &Profile{
 	Name:        "default",
 	Description: "Full quality: 3 audio tracks (system, mic, mix), libx264 veryfast crf23, MKV",
 	Ext:         "mkv",
+	AudioMap:    "0:a:m:title:mix",
 	BuildArgs: func(p RecordingParams, outputPath string) []string {
 		return []string{
 			"-f", "x11grab",
@@ -80,6 +82,7 @@ var profileTelegram = &Profile{
 	Name:        "telegram",
 	Description: "Telegram-compatible MP4: 1280px wide, crf28 ultrafast, mix audio only, faststart",
 	Ext:         "mp4",
+	AudioMap:    "0:a:0",
 	BuildArgs: func(p RecordingParams, outputPath string) []string {
 		return []string{
 			"-f", "x11grab",
@@ -117,6 +120,7 @@ var profileLowres = &Profile{
 	Name:        "lowres",
 	Description: "Low-res MP4: 1280px wide, 15fps, crf22 veryfast, mix audio only — readable text, smaller file",
 	Ext:         "mp4",
+	AudioMap:    "0:a:0",
 	BuildArgs: func(p RecordingParams, outputPath string) []string {
 		return []string{
 			"-f", "x11grab",
