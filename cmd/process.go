@@ -30,7 +30,7 @@ var processCmd = &cobra.Command{
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 
-		mp3s, err := m.ListMP3s()
+		mp3s, err := m.ListMixMP3s()
 		if err != nil {
 			return err
 		}

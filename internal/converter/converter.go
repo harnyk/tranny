@@ -25,12 +25,21 @@ type Result struct {
 	Segments []string // absolute paths, sorted
 }
 
-// Convert extracts the "mix" audio track from record.mkv and segments it into MP3s.
+// Convert normalizes mic and sys audio independently to EBU R128 (-16 LUFS, -1.5 dB true-peak),
+// mixes them, and segments the result into 192kbps mono MP3 chunks in mix/.
 func (c *Converter) Convert(ctx context.Context, m *meeting.MeetingDir) (*Result, error) {
+	if err := os.MkdirAll(m.MixDir(), 0755); err != nil {
+		return nil, fmt.Errorf("create mix dir: %w", err)
+	}
+
 	args := []string{
-		"-i", m.RecordMKVPath(),
-		"-map", "0:a:m:title:mix",
-		"-vn",
+		"-i", m.MicMP3Path(),
+		"-i", m.SysMP3Path(),
+		"-filter_complex",
+		"[0:a]loudnorm=I=-16:TP=-1.5:LRA=11[mic_norm];" +
+			"[1:a]loudnorm=I=-16:TP=-1.5:LRA=11[sys_norm];" +
+			"[mic_norm][sys_norm]amix=inputs=2:normalize=0[mix]",
+		"-map", "[mix]",
 		"-ar", "44100",
 		"-ac", "1",
 		"-b:a", "192k",
@@ -38,7 +47,7 @@ func (c *Converter) Convert(ctx context.Context, m *meeting.MeetingDir) (*Result
 		"-segment_time", fmt.Sprintf("%d", segmentTime),
 		"-segment_start_number", "1",
 		"-y",
-		m.MP3Pattern(),
+		m.MixMP3Pattern(),
 	}
 
 	cmd := exec.CommandContext(ctx, c.cfg.FFmpegBin, args...)
@@ -49,7 +58,7 @@ func (c *Converter) Convert(ctx context.Context, m *meeting.MeetingDir) (*Result
 		return nil, fmt.Errorf("ffmpeg convert: %w", err)
 	}
 
-	segments, err := m.ListMP3s()
+	segments, err := m.ListMixMP3s()
 	if err != nil {
 		return nil, fmt.Errorf("list mp3s: %w", err)
 	}

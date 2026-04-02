@@ -14,7 +14,7 @@ import (
 
 var mp3Cmd = &cobra.Command{
 	Use:   "mp3",
-	Short: "Extract and segment audio from record.mkv into MP3 chunks",
+	Short: "Normalize, mix, and segment source audio into MP3 chunks",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cwd, err := os.Getwd()

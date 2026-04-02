@@ -38,7 +38,7 @@ var recCmd = &cobra.Command{
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 
-		if err := rec.Record(ctx, m.RecordMKVPath()); err != nil {
+		if err := rec.Record(ctx, m); err != nil {
 			return fmt.Errorf("recording failed: %w", err)
 		}
 

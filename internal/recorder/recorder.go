@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/harnyk/tranny/internal/config"
+	"github.com/harnyk/tranny/internal/meeting"
 )
 
 type Recorder struct {
@@ -20,11 +21,19 @@ func New(cfg *config.Config) *Recorder {
 }
 
 // Record starts ffmpeg screen+audio recording. Blocks until ctx is cancelled.
-// Sends SIGINT to ffmpeg on cancellation so it can flush the MKV moov atom cleanly.
-func (r *Recorder) Record(ctx context.Context, outputPath string) error {
+// Sends SIGINT to ffmpeg on cancellation so it can flush files cleanly.
+// Produces three simultaneous outputs in m.SourceDir():
+//   - record.mp4: H.264 video + mixed audio archive
+//   - mic.mp3:    raw microphone (high quality)
+//   - sys.mp3:    raw system audio (high quality)
+func (r *Recorder) Record(ctx context.Context, m *meeting.MeetingDir) error {
 	monitor, mic, err := detectPulseAudioSources()
 	if err != nil {
 		return fmt.Errorf("detect PulseAudio sources: %w", err)
+	}
+
+	if err := os.MkdirAll(m.SourceDir(), 0755); err != nil {
+		return fmt.Errorf("create source dir: %w", err)
 	}
 
 	args := []string{
@@ -38,29 +47,30 @@ func (r *Recorder) Record(ctx context.Context, outputPath string) error {
 		"-f", "pulse",
 		"-i", mic,
 
-		// Mix system + mic audio
+		// Mix system + mic for the video archive
 		"-filter_complex", "[1:a][2:a]amix=inputs=2:normalize=0[mix]",
+
+		// Output 1: video archive (video + mixed audio)
 		"-map", "0:v",
-		"-map", "1:a",
-		"-map", "2:a",
 		"-map", "[mix]",
-
-		// Video codec
-		"-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
-
-		// Audio codec
-		"-c:a", "aac", "-b:a", "160k",
-
-		// Track metadata
-		"-metadata:s:a:0", "title=system",
-		"-metadata:s:a:1", "title=mic",
-		"-metadata:s:a:2", "title=mix",
-		"-disposition:a:0", "0",
-		"-disposition:a:1", "0",
-		"-disposition:a:2", "default",
-
+		"-c:v", "libx264", "-crf", "28", "-preset", "ultrafast",
+		"-vf", "scale=1280:-2", "-pix_fmt", "yuv420p",
+		"-c:a", "aac", "-b:a", "128k",
+		"-movflags", "+faststart",
 		"-y",
-		outputPath,
+		m.RecordMP4Path(),
+
+		// Output 2: mic audio (high quality MP3)
+		"-map", "2:a",
+		"-c:a", "libmp3lame", "-q:a", "0", "-ac", "1",
+		"-y",
+		m.MicMP3Path(),
+
+		// Output 3: system audio (high quality MP3)
+		"-map", "1:a",
+		"-c:a", "libmp3lame", "-q:a", "0", "-ac", "1",
+		"-y",
+		m.SysMP3Path(),
 	}
 
 	cmd := exec.Command(r.cfg.FFmpegBin, args...)
@@ -79,7 +89,7 @@ func (r *Recorder) Record(ctx context.Context, outputPath string) error {
 
 	select {
 	case <-ctx.Done():
-		// Graceful stop: SIGINT lets ffmpeg flush the moov atom
+		// Graceful stop: SIGINT lets ffmpeg flush all output files cleanly
 		_ = cmd.Process.Signal(os.Interrupt)
 		<-done
 		return nil
