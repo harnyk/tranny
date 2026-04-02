@@ -50,7 +50,7 @@ func (t *Transcriber) TranscribeMeeting(ctx context.Context, m *meeting.MeetingD
 		return fmt.Errorf("OPENAI_API_KEY is not set — add it to ~/.config/tranny/config")
 	}
 
-	mp3s, err := m.ListMP3s()
+	mp3s, err := m.ListMixMP3s()
 	if err != nil {
 		return err
 	}

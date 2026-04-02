@@ -18,7 +18,7 @@ type MeetingDir struct {
 	Time time.Time
 }
 
-// NewMeetingDir creates a new meeting directory under baseDir.
+// NewMeetingDir creates a new meeting directory under baseDir with source/, mix/, transcript/ subdirs.
 // Name is slugified; if empty, defaults to "meeting".
 func NewMeetingDir(baseDir, name string) (*MeetingDir, error) {
 	if name == "" {
@@ -28,41 +28,59 @@ func NewMeetingDir(baseDir, name string) (*MeetingDir, error) {
 	now := time.Now()
 	dirName := fmt.Sprintf("%s--%s", now.Format("2006-01-02-15-04-05"), slug)
 	absPath := filepath.Join(baseDir, dirName)
-	if err := os.MkdirAll(absPath, 0755); err != nil {
-		return nil, fmt.Errorf("create meeting dir: %w", err)
+	for _, sub := range []string{"source", "mix", "transcript"} {
+		if err := os.MkdirAll(filepath.Join(absPath, sub), 0755); err != nil {
+			return nil, fmt.Errorf("create meeting dir: %w", err)
+		}
 	}
 	return &MeetingDir{Path: absPath, Name: slug, Time: now}, nil
 }
 
-// Detect finds a meeting directory by looking for record.mkv in cwd.
+// Detect finds a meeting directory by looking for a source/ subdirectory in cwd.
 func Detect(cwd string) (*MeetingDir, error) {
-	mkv := filepath.Join(cwd, "record.mkv")
-	if _, err := os.Stat(mkv); os.IsNotExist(err) {
-		return nil, fmt.Errorf("no record.mkv found in %s — run 'tranny rec' first", cwd)
+	src := filepath.Join(cwd, "source")
+	if _, err := os.Stat(src); os.IsNotExist(err) {
+		return nil, fmt.Errorf("no source/ directory found in %s — run 'tranny rec' first", cwd)
 	}
 	return &MeetingDir{Path: cwd}, nil
 }
 
-func (m *MeetingDir) RecordMKVPath() string {
-	return filepath.Join(m.Path, "record.mkv")
+func (m *MeetingDir) SourceDir() string {
+	return filepath.Join(m.Path, "source")
 }
 
-// MP3Pattern returns the ffmpeg segment output pattern (1-indexed, zero-padded).
-func (m *MeetingDir) MP3Pattern() string {
-	return filepath.Join(m.Path, "record-%03d.mp3")
+func (m *MeetingDir) MixDir() string {
+	return filepath.Join(m.Path, "mix")
+}
+
+func (m *MeetingDir) TranscriptDir() string {
+	return filepath.Join(m.Path, "transcript")
+}
+
+func (m *MeetingDir) RecordMP4Path() string {
+	return filepath.Join(m.SourceDir(), "record.mp4")
+}
+
+func (m *MeetingDir) MicMP3Path() string {
+	return filepath.Join(m.SourceDir(), "mic.mp3")
+}
+
+func (m *MeetingDir) SysMP3Path() string {
+	return filepath.Join(m.SourceDir(), "sys.mp3")
+}
+
+// MixMP3Pattern returns the ffmpeg segment output pattern (1-indexed, zero-padded).
+func (m *MeetingDir) MixMP3Pattern() string {
+	return filepath.Join(m.MixDir(), "record-%03d.mp3")
 }
 
 func (m *MeetingDir) TranscriptPath() string {
-	return filepath.Join(m.Path, "transcript.txt")
+	return filepath.Join(m.TranscriptDir(), "transcript.txt")
 }
 
-func (m *MeetingDir) CompressedMP4Path() string {
-	return filepath.Join(m.Path, "record-compressed.mp4")
-}
-
-// ListMP3s returns all record-NNN.mp3 files sorted lexicographically.
-func (m *MeetingDir) ListMP3s() ([]string, error) {
-	matches, err := filepath.Glob(filepath.Join(m.Path, "record-*.mp3"))
+// ListMixMP3s returns all mix/record-NNN.mp3 files sorted lexicographically.
+func (m *MeetingDir) ListMixMP3s() ([]string, error) {
+	matches, err := filepath.Glob(filepath.Join(m.MixDir(), "record-*.mp3"))
 	if err != nil {
 		return nil, err
 	}

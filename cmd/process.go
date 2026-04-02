@@ -9,12 +9,13 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/harnyk/tranny/internal/converter"
 	"github.com/harnyk/tranny/internal/meeting"
 )
 
 var processCmd = &cobra.Command{
 	Use:   "process",
-	Short: "Auto-detect and run missing pipeline steps (mp3, transcript)",
+	Short: "Auto-detect and run missing pipeline steps (soundmix, transcript)",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cwd, err := os.Getwd()
@@ -30,7 +31,7 @@ var processCmd = &cobra.Command{
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 
-		mp3s, err := m.ListMP3s()
+		mp3s, err := m.ListMixMP3s()
 		if err != nil {
 			return err
 		}
@@ -38,8 +39,13 @@ var processCmd = &cobra.Command{
 		didSomething := false
 
 		if len(mp3s) == 0 {
-			fmt.Println("No MP3s found — converting...")
-			result, err := conv.Convert(ctx, m)
+			fmt.Println("No mix MP3s found — mixing...")
+			micDB, _ := cmd.Flags().GetFloat64("mic-volume")
+			sysDB, _ := cmd.Flags().GetFloat64("sys-volume")
+			result, err := conv.Convert(ctx, m, converter.Options{
+				MicVolumeDB: micDB,
+				SysVolumeDB: sysDB,
+			})
 			if err != nil {
 				return err
 			}
@@ -65,5 +71,7 @@ var processCmd = &cobra.Command{
 }
 
 func init() {
+	processCmd.Flags().Float64("mic-volume", 0, "microphone volume adjustment in dB (e.g. 3 or -6)")
+	processCmd.Flags().Float64("sys-volume", 0, "system audio volume adjustment in dB (e.g. 3 or -6)")
 	rootCmd.AddCommand(processCmd)
 }
