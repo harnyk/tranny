@@ -15,9 +15,9 @@ import (
 
 	"golang.org/x/text/language"
 
-	"github.com/harnyk/tranny/internal/config"
-	"github.com/harnyk/tranny/internal/format"
-	"github.com/harnyk/tranny/internal/meeting"
+	"github.com/harnyk/tran/internal/config"
+	"github.com/harnyk/tran/internal/format"
+	"github.com/harnyk/tran/internal/meeting"
 )
 
 const (
@@ -49,7 +49,7 @@ type whisperResponse struct {
 // TranscribeMeeting transcribes all MP3 chunks in a meeting dir and writes transcript.txt.
 func (t *Transcriber) TranscribeMeeting(ctx context.Context, m *meeting.MeetingDir, lang string) error {
 	if t.cfg.OpenAIAPIKey == "" {
-		return fmt.Errorf("OPENAI_API_KEY is not set — add it to ~/.config/tranny/config")
+		return fmt.Errorf("OPENAI_API_KEY is not set — add it to ~/.config/tran/config")
 	}
 
 	apiLanguage, err := NormalizeLanguage(lang)
@@ -62,7 +62,7 @@ func (t *Transcriber) TranscribeMeeting(ctx context.Context, m *meeting.MeetingD
 		return err
 	}
 	if len(mp3s) == 0 {
-		return fmt.Errorf("no MP3 files found — run 'tranny mp3' first")
+		return fmt.Errorf("no MP3 files found — run 'tran mp3' first")
 	}
 
 	var sb strings.Builder
@@ -183,7 +183,7 @@ func (t *Transcriber) prepareAudio(path string) (outPath string, isTemp bool, er
 	}
 
 	// Compress to temp file: 64kbps mono 16kHz
-	tmp, err := os.CreateTemp("", "tranny-*.mp3")
+	tmp, err := os.CreateTemp("", "tran-*.mp3")
 	if err != nil {
 		return "", false, err
 	}

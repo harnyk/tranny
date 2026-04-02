@@ -15,10 +15,10 @@ type Config struct {
 }
 
 func Load() (*Config, error) {
-	// Load ~/.config/tranny/config if it exists (don't error if missing)
+	// Load ~/.config/tran/config if it exists (don't error if missing)
 	home, err := os.UserHomeDir()
 	if err == nil {
-		cfgFile := filepath.Join(home, ".config", "tranny", "config")
+		cfgFile := filepath.Join(home, ".config", "tran", "config")
 		// godotenv.Overload sets env vars; we use Read to get values without polluting env
 		vals, _ := godotenv.Read(cfgFile)
 		for k, v := range vals {

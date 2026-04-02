@@ -7,8 +7,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/harnyk/tranny/internal/config"
-	"github.com/harnyk/tranny/internal/meeting"
+	"github.com/harnyk/tran/internal/config"
+	"github.com/harnyk/tran/internal/meeting"
 )
 
 // segmentTime is computed as 23MB * 8 bits / 192kbps = 963 seconds

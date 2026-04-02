@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/harnyk/tranny/internal/meeting"
+	"github.com/harnyk/tran/internal/meeting"
 )
 
 var recCmd = &cobra.Command{

@@ -1,18 +1,18 @@
-# tranny
+# tran
 
 Go CLI for meeting-centric recording and transcription.
 
 ## Install
 
 ```bash
-make install   # installs to $GOPATH/bin/tranny
+make install   # installs to $GOPATH/bin/tran
 ```
 
 Requires `ffmpeg` and `pactl` (PulseAudio) on `$PATH`.
 
 ## Config
 
-`~/.config/tranny/config` (godotenv format):
+`~/.config/tran/config` (godotenv format):
 
 ```
 OPENAI_API_KEY=sk-...
@@ -40,27 +40,27 @@ Environment variables override file values.
 
 ## Commands
 
-### `tranny rec [name]`
+### `tran rec [name]`
 
 Start recording. Creates a timestamped meeting directory and launches a
 single ffmpeg process that writes three files simultaneously to `source/`.
 Stop with **Ctrl+C** — ffmpeg receives SIGINT and flushes all outputs cleanly.
 
 ```
-tranny rec "HR interview with Alena"
+tran rec "HR interview with Alena"
 ```
 
-### `tranny soundmix`
+### `tran soundmix`
 
 Run from the meeting directory. Reads `source/mic.mp3` and `source/sys.mp3`,
 mixes them, and segments the result into `mix/record-NNN.mp3` chunks
 (≤ 23 MB each, sized for the Whisper API 25 MB limit).
 
 ```
-tranny soundmix                        # flat mix, no adjustments
-tranny soundmix --mic-volume 6         # boost mic by +6 dB
-tranny soundmix --sys-volume -3        # reduce system audio by 3 dB
-tranny soundmix --mic-volume 6 --sys-volume -3
+tran soundmix                        # flat mix, no adjustments
+tran soundmix --mic-volume 6         # boost mic by +6 dB
+tran soundmix --sys-volume -3        # reduce system audio by 3 dB
+tran soundmix --mic-volume 6 --sys-volume -3
 ```
 
 | Flag | Default | Description |
@@ -68,7 +68,7 @@ tranny soundmix --mic-volume 6 --sys-volume -3
 | `--mic-volume` | `0` | Microphone gain in dB |
 | `--sys-volume` | `0` | System audio gain in dB |
 
-### `tranny transcript`
+### `tran transcript`
 
 Run from the meeting directory. Sends each `mix/record-NNN.mp3` chunk to the
 OpenAI Whisper API and writes `transcript/transcript.txt` with segment-level
@@ -82,22 +82,22 @@ ISO 639 language code with 2 or 3 letters like `en`, `eng`, or `pol`. The
 default is `en`. Use `auto` to send an empty `language` parameter to the API.
 
 ```bash
-tranny transcript --lang en
-tranny transcript --lang eng
-tranny transcript --lang auto
+tran transcript --lang en
+tran transcript --lang eng
+tran transcript --lang auto
 ```
 
-### `tranny process`
+### `tran process`
 
 Run from the meeting directory. Detects and runs whichever steps are still
 missing: soundmix → transcript.
 
 ```
-tranny process                         # run missing steps with defaults
-tranny process --mic-volume 6          # pass volume flags to soundmix step
-tranny process --lang pl               # force Polish for the transcript step
-tranny process --lang pol              # same, using a 3-letter ISO 639 code
-tranny process --lang auto             # let the API auto-detect language
+tran process                         # run missing steps with defaults
+tran process --mic-volume 6          # pass volume flags to soundmix step
+tran process --lang pl               # force Polish for the transcript step
+tran process --lang pol              # same, using a 3-letter ISO 639 code
+tran process --lang auto             # let the API auto-detect language
 ```
 
 Accepts `--lang` / `-l` plus the same `--mic-volume` / `--sys-volume` flags as
@@ -108,25 +108,25 @@ Volume flags are only applied if the soundmix step actually runs (i.e. no
 ## Typical workflow
 
 ```bash
-tranny rec "team standup"
+tran rec "team standup"
 # ... meeting happens, Ctrl+C to stop ...
 
 cd 2026-04-02-*--team-standup/
-tranny process
+tran process
 ```
 
 Or step by step:
 
 ```bash
-tranny soundmix --mic-volume 3
-tranny transcript --lang en
+tran soundmix --mic-volume 3
+tran transcript --lang en
 ```
 
 ---
 
 ## Data flow diagrams
 
-### `tranny rec` — ffmpeg graph
+### `tran rec` — ffmpeg graph
 
 ```mermaid
 graph LR
@@ -154,7 +154,7 @@ graph LR
     P1 -->|"map 1:a"| SYS
 ```
 
-### `tranny soundmix` — ffmpeg graph
+### `tran soundmix` — ffmpeg graph
 
 ```mermaid
 graph LR
@@ -184,7 +184,7 @@ graph LR
     AMIX --> SEG
 ```
 
-### `tranny transcript` — chunk pipeline
+### `tran transcript` — chunk pipeline
 
 ```mermaid
 graph LR
@@ -213,7 +213,7 @@ graph LR
 
 ```mermaid
 graph TD
-    REC["tranny rec"]
+    REC["tran rec"]
 
     subgraph source["source/"]
         MP4["record.mp4"]
@@ -221,13 +221,13 @@ graph TD
         SYS["sys.mp3"]
     end
 
-    SM["tranny soundmix\n(--mic-volume / --sys-volume)"]
+    SM["tran soundmix\n(--mic-volume / --sys-volume)"]
 
     subgraph mix["mix/"]
         CHUNKS["record-001.mp3 …"]
     end
 
-    TR["tranny transcript"]
+    TR["tran transcript"]
 
     subgraph transcript["transcript/"]
         TXT["transcript.txt"]

@@ -1,6 +1,6 @@
 package main
 
-import "github.com/harnyk/tranny/cmd"
+import "github.com/harnyk/tran/cmd"
 
 func main() {
 	cmd.Execute()

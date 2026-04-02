@@ -1,4 +1,4 @@
-BINARY := tranny
+BINARY := tran
 INSTALL_DIR := $(GOPATH)/bin
 
 .PHONY: build install clean

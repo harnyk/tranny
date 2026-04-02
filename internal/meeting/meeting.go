@@ -40,7 +40,7 @@ func NewMeetingDir(baseDir, name string) (*MeetingDir, error) {
 func Detect(cwd string) (*MeetingDir, error) {
 	src := filepath.Join(cwd, "source")
 	if _, err := os.Stat(src); os.IsNotExist(err) {
-		return nil, fmt.Errorf("no source/ directory found in %s — run 'tranny rec' first", cwd)
+		return nil, fmt.Errorf("no source/ directory found in %s — run 'tran rec' first", cwd)
 	}
 	return &MeetingDir{Path: cwd}, nil
 }

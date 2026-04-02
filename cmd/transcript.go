@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/harnyk/tranny/internal/meeting"
-	"github.com/harnyk/tranny/internal/transcriber"
+	"github.com/harnyk/tran/internal/meeting"
+	"github.com/harnyk/tran/internal/transcriber"
 )
 
 var transcriptCmd = &cobra.Command{
