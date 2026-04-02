@@ -11,6 +11,7 @@ import (
 
 	"github.com/harnyk/tranny/internal/converter"
 	"github.com/harnyk/tranny/internal/meeting"
+	"github.com/harnyk/tranny/internal/transcriber"
 )
 
 var processCmd = &cobra.Command{
@@ -18,6 +19,14 @@ var processCmd = &cobra.Command{
 	Short: "Auto-detect and run missing pipeline steps (soundmix, transcript)",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		lang, err := cmd.Flags().GetString("lang")
+		if err != nil {
+			return err
+		}
+		if _, err := transcriber.NormalizeLanguage(lang); err != nil {
+			return err
+		}
+
 		cwd, err := os.Getwd()
 		if err != nil {
 			return err
@@ -56,7 +65,7 @@ var processCmd = &cobra.Command{
 
 		if _, err := os.Stat(m.TranscriptPath()); os.IsNotExist(err) {
 			fmt.Println("No transcript found — transcribing...")
-			if err := trans.TranscribeMeeting(ctx, m); err != nil {
+			if err := trans.TranscribeMeeting(ctx, m, lang); err != nil {
 				return err
 			}
 			fmt.Printf("Saved: %s\n", m.TranscriptPath())
@@ -71,6 +80,7 @@ var processCmd = &cobra.Command{
 }
 
 func init() {
+	processCmd.Flags().StringP("lang", "l", "en", "transcription language: ISO 639 code (2 or 3 letters, e.g. en, eng, pol) or auto")
 	processCmd.Flags().Float64("mic-volume", 0, "microphone volume adjustment in dB (e.g. 3 or -6)")
 	processCmd.Flags().Float64("sys-volume", 0, "system audio volume adjustment in dB (e.g. 3 or -6)")
 	rootCmd.AddCommand(processCmd)

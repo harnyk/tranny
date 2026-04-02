@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/harnyk/tranny/internal/meeting"
+	"github.com/harnyk/tranny/internal/transcriber"
 )
 
 var transcriptCmd = &cobra.Command{
@@ -17,6 +18,14 @@ var transcriptCmd = &cobra.Command{
 	Short: "Transcribe MP3 chunks and write transcript.txt",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		lang, err := cmd.Flags().GetString("lang")
+		if err != nil {
+			return err
+		}
+		if _, err := transcriber.NormalizeLanguage(lang); err != nil {
+			return err
+		}
+
 		cwd, err := os.Getwd()
 		if err != nil {
 			return err
@@ -31,7 +40,7 @@ var transcriptCmd = &cobra.Command{
 		defer stop()
 
 		fmt.Println("Transcribing...")
-		if err := trans.TranscribeMeeting(ctx, m); err != nil {
+		if err := trans.TranscribeMeeting(ctx, m, lang); err != nil {
 			return err
 		}
 
@@ -46,5 +55,6 @@ var transcriptCmd = &cobra.Command{
 }
 
 func init() {
+	transcriptCmd.Flags().StringP("lang", "l", "en", "transcription language: ISO 639 code (2 or 3 letters, e.g. en, eng, pol) or auto")
 	rootCmd.AddCommand(transcriptCmd)
 }

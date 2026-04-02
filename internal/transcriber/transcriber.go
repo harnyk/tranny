@@ -13,14 +13,16 @@ import (
 	"path/filepath"
 	"strings"
 
+	"golang.org/x/text/language"
+
 	"github.com/harnyk/tranny/internal/config"
 	"github.com/harnyk/tranny/internal/format"
 	"github.com/harnyk/tranny/internal/meeting"
 )
 
 const (
-	whisperURL    = "https://api.openai.com/v1/audio/transcriptions"
-	maxSizeBytes  = 25 * 1024 * 1024 // 25 MB OpenAI limit
+	whisperURL   = "https://api.openai.com/v1/audio/transcriptions"
+	maxSizeBytes = 25 * 1024 * 1024 // 25 MB OpenAI limit
 )
 
 type Transcriber struct {
@@ -45,9 +47,14 @@ type whisperResponse struct {
 }
 
 // TranscribeMeeting transcribes all MP3 chunks in a meeting dir and writes transcript.txt.
-func (t *Transcriber) TranscribeMeeting(ctx context.Context, m *meeting.MeetingDir) error {
+func (t *Transcriber) TranscribeMeeting(ctx context.Context, m *meeting.MeetingDir, lang string) error {
 	if t.cfg.OpenAIAPIKey == "" {
 		return fmt.Errorf("OPENAI_API_KEY is not set — add it to ~/.config/tranny/config")
+	}
+
+	apiLanguage, err := NormalizeLanguage(lang)
+	if err != nil {
+		return err
 	}
 
 	mp3s, err := m.ListMixMP3s()
@@ -64,7 +71,7 @@ func (t *Transcriber) TranscribeMeeting(ctx context.Context, m *meeting.MeetingD
 		chunkNum := i + 1
 		fmt.Fprintf(os.Stderr, "Transcribing chunk %03d/%03d: %s\n", chunkNum, len(mp3s), filepath.Base(path))
 
-		result, err := t.transcribeFile(ctx, path)
+		result, err := t.transcribeFile(ctx, path, apiLanguage)
 		if err != nil {
 			return fmt.Errorf("chunk %03d: %w", chunkNum, err)
 		}
@@ -81,7 +88,33 @@ func (t *Transcriber) TranscribeMeeting(ctx context.Context, m *meeting.MeetingD
 	return os.WriteFile(m.TranscriptPath(), []byte(sb.String()), 0644)
 }
 
-func (t *Transcriber) transcribeFile(ctx context.Context, audioPath string) (*whisperResponse, error) {
+func NormalizeLanguage(lang string) (string, error) {
+	if lang == "auto" {
+		return "", nil
+	}
+
+	base, err := language.ParseBase(lang)
+	if err != nil {
+		return "", fmt.Errorf("invalid --lang %q: use a valid ISO 639 language code (2 or 3 letters) like \"en\", \"eng\", or \"pol\", or \"auto\"", lang)
+	}
+
+	return base.String(), nil
+}
+
+func writeTranscriptionFields(w *multipart.Writer, model string, language string) error {
+	if err := w.WriteField("model", model); err != nil {
+		return err
+	}
+	if err := w.WriteField("language", language); err != nil {
+		return err
+	}
+	if err := w.WriteField("response_format", "verbose_json"); err != nil {
+		return err
+	}
+	return w.WriteField("timestamp_granularities[]", "segment")
+}
+
+func (t *Transcriber) transcribeFile(ctx context.Context, audioPath string, language string) (*whisperResponse, error) {
 	path, isTemp, err := t.prepareAudio(audioPath)
 	if err != nil {
 		return nil, err
@@ -98,9 +131,9 @@ func (t *Transcriber) transcribeFile(ctx context.Context, audioPath string) (*wh
 
 	var body bytes.Buffer
 	w := multipart.NewWriter(&body)
-	_ = w.WriteField("model", t.cfg.STTModel)
-	_ = w.WriteField("response_format", "verbose_json")
-	_ = w.WriteField("timestamp_granularities[]", "segment")
+	if err := writeTranscriptionFields(w, t.cfg.STTModel, language); err != nil {
+		return nil, err
+	}
 
 	fw, err := w.CreateFormFile("file", filepath.Base(path))
 	if err != nil {

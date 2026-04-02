@@ -77,6 +77,16 @@ timestamps.
 Files larger than 25 MB are automatically re-compressed to a 64 kbps / 16 kHz
 mono temp file before upload.
 
+Accepts `--lang` / `-l` to explicitly set the transcription language. Use an
+ISO 639 language code with 2 or 3 letters like `en`, `eng`, or `pol`. The
+default is `en`. Use `auto` to send an empty `language` parameter to the API.
+
+```bash
+tranny transcript --lang en
+tranny transcript --lang eng
+tranny transcript --lang auto
+```
+
 ### `tranny process`
 
 Run from the meeting directory. Detects and runs whichever steps are still
@@ -85,9 +95,13 @@ missing: soundmix → transcript.
 ```
 tranny process                         # run missing steps with defaults
 tranny process --mic-volume 6          # pass volume flags to soundmix step
+tranny process --lang pl               # force Polish for the transcript step
+tranny process --lang pol              # same, using a 3-letter ISO 639 code
+tranny process --lang auto             # let the API auto-detect language
 ```
 
-Accepts the same `--mic-volume` / `--sys-volume` flags as `soundmix`.
+Accepts `--lang` / `-l` plus the same `--mic-volume` / `--sys-volume` flags as
+`soundmix`.
 Volume flags are only applied if the soundmix step actually runs (i.e. no
 `mix/` chunks exist yet).
 
@@ -105,7 +119,7 @@ Or step by step:
 
 ```bash
 tranny soundmix --mic-volume 3
-tranny transcript
+tranny transcript --lang en
 ```
 
 ---
