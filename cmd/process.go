@@ -40,7 +40,12 @@ var processCmd = &cobra.Command{
 
 		if len(mp3s) == 0 {
 			fmt.Println("No mix MP3s found — mixing...")
-			result, err := conv.Convert(ctx, m, converter.Options{})
+			micDB, _ := cmd.Flags().GetFloat64("mic-volume")
+			sysDB, _ := cmd.Flags().GetFloat64("sys-volume")
+			result, err := conv.Convert(ctx, m, converter.Options{
+				MicVolumeDB: micDB,
+				SysVolumeDB: sysDB,
+			})
 			if err != nil {
 				return err
 			}
@@ -66,5 +71,7 @@ var processCmd = &cobra.Command{
 }
 
 func init() {
+	processCmd.Flags().Float64("mic-volume", 0, "microphone volume adjustment in dB (e.g. 3 or -6)")
+	processCmd.Flags().Float64("sys-volume", 0, "system audio volume adjustment in dB (e.g. 3 or -6)")
 	rootCmd.AddCommand(processCmd)
 }
