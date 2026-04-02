@@ -6,10 +6,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/harnyk/tranny/internal/config"
-	"github.com/harnyk/tranny/internal/converter"
-	"github.com/harnyk/tranny/internal/recorder"
-	"github.com/harnyk/tranny/internal/transcriber"
+	"github.com/harnyk/tran/internal/config"
+	"github.com/harnyk/tran/internal/converter"
+	"github.com/harnyk/tran/internal/recorder"
+	"github.com/harnyk/tran/internal/transcriber"
 )
 
 var (
@@ -20,7 +20,7 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "tranny",
+	Use:   "tran",
 	Short: "Meeting recorder and transcript manager",
 }
 

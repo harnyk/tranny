@@ -11,7 +11,7 @@ builds:
       - linux
     goarch:
       - amd64
-    binary: tranny
+    binary: tran
 
 archives:
   - formats:
@@ -24,9 +24,9 @@ archives:
       {{- else }}{{ .Arch }}{{ end }}
 
 nfpms:
-  - package_name: tranny
+  - package_name: tran
     vendor: harnyk
-    homepage: https://github.com/harnyk/tranny
+    homepage: https://github.com/harnyk/tran
     description: Meeting-centric recording and transcription CLI.
     license: MIT
     formats:

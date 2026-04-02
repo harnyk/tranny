@@ -1,4 +1,4 @@
-module github.com/harnyk/tranny
+module github.com/harnyk/tran
 
 go 1.25.5
 

@@ -1,17 +1,17 @@
-# tranny
+# tran
 
 Go CLI for meeting-centric recording and transcription.
 
 ## Module
 
-`github.com/harnyk/tranny` — Go 1.25, two external deps: `cobra`, `godotenv`.
+`github.com/harnyk/tran` — Go 1.25, two external deps: `cobra`, `godotenv`.
 
 ## Commands
 
-- `tranny rec [name]` — start ffmpeg recording, creates `YYYY-MM-DD-HH-MM-SS--Name/`
-- `tranny mp3` — run from meeting dir, extracts `mix` track → `record-001.mp3`, ...
-- `tranny transcript` — run from meeting dir, calls Whisper API → `transcript.txt`
-- `tranny process` — run from meeting dir, detects and runs missing steps
+- `tran rec [name]` — start ffmpeg recording, creates `YYYY-MM-DD-HH-MM-SS--Name/`
+- `tran mp3` — run from meeting dir, extracts `mix` track → `record-001.mp3`, ...
+- `tran transcript` — run from meeting dir, calls Whisper API → `transcript.txt`
+- `tran process` — run from meeting dir, detects and runs missing steps
 
 ## Meeting directory format
 
@@ -30,7 +30,7 @@ Time uses hyphens (not colons) for cross-tool compatibility.
 ```
 cmd/         — cobra command wiring only, no business logic
 internal/
-  config/    — Config struct, loads ~/.config/tranny/config then env vars
+  config/    — Config struct, loads ~/.config/tran/config then env vars
   meeting/   — MeetingDir type, slug, detection, path helpers
   recorder/  — ffmpeg screen+audio subprocess (SIGINT for clean MKV close)
   converter/ — ffmpeg MKV → segmented MP3 (963s segments, 1-indexed)
@@ -40,7 +40,7 @@ internal/
 
 ## Config
 
-`~/.config/tranny/config` (godotenv format):
+`~/.config/tran/config` (godotenv format):
 ```
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL_STT=whisper-1
@@ -53,7 +53,7 @@ Env vars override file values.
 
 ```bash
 go build ./...
-make install   # installs to $GOPATH/bin/tranny
+make install   # installs to $GOPATH/bin/tran
 ```
 
 ## Key decisions

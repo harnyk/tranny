@@ -3,7 +3,7 @@ version: '3'
 tasks:
   build:
     cmds:
-      - go build -o tranny .
+      - go build -o tran .
 
   install:
     cmds:
@@ -19,8 +19,8 @@ tasks:
 
   uninstall:
     cmds:
-      - rm -f $(go env GOPATH)/bin/tranny
+      - rm -f $(go env GOPATH)/bin/tran
 
   clean:
     cmds:
-      - rm -f tranny
+      - rm -f tran

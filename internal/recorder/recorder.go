@@ -8,8 +8,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/harnyk/tranny/internal/config"
-	"github.com/harnyk/tranny/internal/meeting"
+	"github.com/harnyk/tran/internal/config"
+	"github.com/harnyk/tran/internal/meeting"
 )
 
 type Recorder struct {
