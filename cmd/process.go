@@ -9,12 +9,13 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/harnyk/tranny/internal/converter"
 	"github.com/harnyk/tranny/internal/meeting"
 )
 
 var processCmd = &cobra.Command{
 	Use:   "process",
-	Short: "Auto-detect and run missing pipeline steps (mp3, transcript)",
+	Short: "Auto-detect and run missing pipeline steps (soundmix, transcript)",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cwd, err := os.Getwd()
@@ -38,8 +39,8 @@ var processCmd = &cobra.Command{
 		didSomething := false
 
 		if len(mp3s) == 0 {
-			fmt.Println("No MP3s found — converting...")
-			result, err := conv.Convert(ctx, m)
+			fmt.Println("No mix MP3s found — mixing...")
+			result, err := conv.Convert(ctx, m, converter.Options{})
 			if err != nil {
 				return err
 			}
