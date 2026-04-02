@@ -14,11 +14,11 @@ func TestNormalizeLanguage(t *testing.T) {
 		want    string
 		wantErr bool
 	}{
-		{name: "default english", input: "en", want: "en"},
-		{name: "polish", input: "pl", want: "pl"},
+		{name: "two letter english", input: "en", want: "en"},
+		{name: "three letter polish", input: "pol", want: "pl"},
 		{name: "auto", input: "auto", want: ""},
-		{name: "uppercase rejected", input: "EN", wantErr: true},
-		{name: "three letters rejected", input: "eng", wantErr: true},
+		{name: "uppercase canonicalized", input: "EN", want: "en"},
+		{name: "three letter english canonicalized", input: "eng", want: "en"},
 		{name: "region rejected", input: "en-US", wantErr: true},
 		{name: "unknown code rejected", input: "zz", wantErr: true},
 	}

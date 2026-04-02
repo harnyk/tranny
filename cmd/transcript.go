@@ -55,6 +55,6 @@ var transcriptCmd = &cobra.Command{
 }
 
 func init() {
-	transcriptCmd.Flags().StringP("lang", "l", "en", "transcription language: lowercase ISO 639-1 code (e.g. en, pl) or auto")
+	transcriptCmd.Flags().StringP("lang", "l", "en", "transcription language: ISO 639 code (2 or 3 letters, e.g. en, eng, pol) or auto")
 	rootCmd.AddCommand(transcriptCmd)
 }

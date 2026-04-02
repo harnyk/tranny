@@ -80,7 +80,7 @@ var processCmd = &cobra.Command{
 }
 
 func init() {
-	processCmd.Flags().StringP("lang", "l", "en", "transcription language: lowercase ISO 639-1 code (e.g. en, pl) or auto")
+	processCmd.Flags().StringP("lang", "l", "en", "transcription language: ISO 639 code (2 or 3 letters, e.g. en, eng, pol) or auto")
 	processCmd.Flags().Float64("mic-volume", 0, "microphone volume adjustment in dB (e.g. 3 or -6)")
 	processCmd.Flags().Float64("sys-volume", 0, "system audio volume adjustment in dB (e.g. 3 or -6)")
 	rootCmd.AddCommand(processCmd)
