@@ -78,6 +78,18 @@ func (m *MeetingDir) TranscriptPath() string {
 	return filepath.Join(m.TranscriptDir(), "transcript.txt")
 }
 
+func (m *MeetingDir) SampleDir() string {
+	return filepath.Join(m.Path, "sample")
+}
+
+func (m *MeetingDir) MicSamplePath() string {
+	return filepath.Join(m.SampleDir(), "mic.sample.mp3")
+}
+
+func (m *MeetingDir) SysSamplePath() string {
+	return filepath.Join(m.SampleDir(), "sys.sample.mp3")
+}
+
 // ListMixMP3s returns all mix/record-NNN.mp3 files sorted lexicographically.
 func (m *MeetingDir) ListMixMP3s() ([]string, error) {
 	matches, err := filepath.Glob(filepath.Join(m.MixDir(), "record-*.mp3"))
