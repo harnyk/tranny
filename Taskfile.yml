@@ -29,3 +29,8 @@ tasks:
     desc: "Generate TTS audio assets for integration tests (requires OpenAI API key)"
     cmds:
       - go run ./integration-test/prepare
+
+  test:integration:
+    desc: "Run integration tests against real OpenAI API (requires prepared assets)"
+    cmds:
+      - go test -v -tags integration ./integration-test/... -timeout 300s
