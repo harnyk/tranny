@@ -88,6 +88,9 @@ func (t *Transcriber) TranscribeMeeting(ctx context.Context, m *meeting.MeetingD
 		}
 	}
 
+	if err := os.MkdirAll(m.TranscriptDir(), 0755); err != nil {
+		return err
+	}
 	return os.WriteFile(m.TranscriptPath(), []byte(sb.String()), 0644)
 }
 
@@ -271,6 +274,9 @@ func (t *Transcriber) TranscribeChannel(ctx context.Context, audioPath, lang, ou
 	if err != nil {
 		return fmt.Errorf("marshal yaml: %w", err)
 	}
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+		return err
+	}
 	return os.WriteFile(outputPath, data, 0644)
 }
 
@@ -326,6 +332,9 @@ func (t *Transcriber) MergeChannelTranscripts(micPath, sysPath, outputPath, meet
 		fmt.Fprintf(&sb, "[%s] %s: %s\n", format.Timestamp(seg.absSeconds), seg.speaker, seg.text)
 	}
 
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+		return err
+	}
 	return os.WriteFile(outputPath, []byte(sb.String()), 0644)
 }
 
