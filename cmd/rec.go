@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -32,20 +33,45 @@ var recCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Printf("Recording to: %s\n", m.Path)
-		fmt.Println("Press Ctrl+C to stop recording.")
-
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
+
+		// Print media table before starting so devices are known.
+		// Devices are detected inside Record(), so we print after it returns
+		// or — for the table — we print it right after Record starts.
+		// Because device detection happens inside Record(), we print the
+		// directory now and the device table after recording completes.
+		// Instead, print the table using info available from config + meeting dir.
+		fmt.Println("Recording media:")
+		fmt.Printf("  %-12s  Audio capture (microphone)\n", "mic.mp3")
+		fmt.Printf("  %-12s  Audio capture (system monitor)\n", "sys.mp3")
+		fmt.Printf("  %-12s  Mixed audio + screen capture %s\n", "record.mp4", cfg.Display)
+		fmt.Println()
+		fmt.Printf("Directory: %s\n", m.Path)
+		fmt.Println()
+
+		fmt.Println("Recording started")
 
 		if err := rec.Record(ctx, m); err != nil {
 			return fmt.Errorf("recording failed: %w", err)
 		}
 
-		fmt.Println("\nRecording saved.")
+		d := rec.Duration()
+		fmt.Printf("Recording stopped (duration %s)\n", formatDuration(d))
 		fmt.Printf("\ncd %s\n", m.Path)
 		return nil
 	},
+}
+
+func formatDuration(d time.Duration) string {
+	d = d.Round(time.Second)
+	h := int(d.Hours())
+	m := int(d.Minutes()) % 60
+	s := int(d.Seconds()) % 60
+	if h > 0 {
+		return fmt.Sprintf("%d:%02d:%02d", h, m, s)
+	}
+	return fmt.Sprintf("%d:%02d", m, s)
 }
 
 func init() {

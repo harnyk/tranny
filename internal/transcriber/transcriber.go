@@ -72,8 +72,6 @@ func (t *Transcriber) TranscribeMeeting(ctx context.Context, m *meeting.MeetingD
 	fmt.Fprintf(&sb, "---\nmeeting: %s\n---\n\n", filepath.Base(m.Path))
 	for i, path := range mp3s {
 		chunkNum := i + 1
-		fmt.Fprintf(os.Stderr, "Transcribing chunk %03d/%03d: %s\n", chunkNum, len(mp3s), filepath.Base(path))
-
 		result, err := t.transcribeFile(ctx, path, apiLanguage)
 		if err != nil {
 			return fmt.Errorf("chunk %03d: %w", chunkNum, err)
@@ -214,10 +212,12 @@ func (t *Transcriber) segmentToTempDir(ctx context.Context, audioPath string) (c
 		"-y",
 		pattern,
 	)
-	cmd.Stderr = os.Stderr
+	var ffmpegOutput bytes.Buffer
+	cmd.Stdout = &ffmpegOutput
+	cmd.Stderr = &ffmpegOutput
 	if err := cmd.Run(); err != nil {
 		os.RemoveAll(tempDir)
-		return nil, "", fmt.Errorf("segment audio: %w", err)
+		return nil, "", fmt.Errorf("segment audio: %w\n%s", err, ffmpegOutput.String())
 	}
 
 	matches, err := filepath.Glob(filepath.Join(tempDir, "chunk-*.mp3"))
@@ -252,7 +252,7 @@ func (t *Transcriber) TranscribeChannel(ctx context.Context, audioPath, lang, ou
 	for i, chunk := range chunks {
 		chunkNum := i + 1
 		offset := float64(i) * converter.SegmentTime
-		fmt.Fprintf(os.Stderr, "  chunk %03d/%03d: %s\n", chunkNum, len(chunks), filepath.Base(chunk))
+		fmt.Printf("  %-4s chunk %d/%d\n", channel, chunkNum, len(chunks))
 
 		result, err := t.transcribeFile(ctx, chunk, lang)
 		if err != nil {
@@ -354,24 +354,18 @@ func (t *Transcriber) TranscribeMeetingDualChannel(ctx context.Context, m *meeti
 	meetingName := filepath.Base(m.Path)
 
 	if _, err := os.Stat(m.TranscriptMicPath()); os.IsNotExist(err) {
-		fmt.Fprintf(os.Stderr, "Transcribing mic channel (%s)...\n", m.MicMP3Path())
 		if err := t.TranscribeChannel(ctx, m.MicMP3Path(), apiLanguage, m.TranscriptMicPath(), "mic", meetingName); err != nil {
 			return fmt.Errorf("mic channel: %w", err)
 		}
-	} else {
-		fmt.Fprintf(os.Stderr, "Mic transcript already exists, skipping re-transcription.\n")
 	}
 
 	if _, err := os.Stat(m.TranscriptSysPath()); os.IsNotExist(err) {
-		fmt.Fprintf(os.Stderr, "Transcribing sys channel (%s)...\n", m.SysMP3Path())
 		if err := t.TranscribeChannel(ctx, m.SysMP3Path(), apiLanguage, m.TranscriptSysPath(), "sys", meetingName); err != nil {
 			return fmt.Errorf("sys channel: %w", err)
 		}
-	} else {
-		fmt.Fprintf(os.Stderr, "Sys transcript already exists, skipping re-transcription.\n")
 	}
 
-	fmt.Fprintf(os.Stderr, "Merging transcripts...\n")
+	fmt.Println("  merging channels")
 	return t.MergeChannelTranscripts(m.TranscriptMicPath(), m.TranscriptSysPath(), m.TranscriptPath(), meetingName)
 }
 
@@ -400,10 +394,12 @@ func (t *Transcriber) prepareAudio(path string) (outPath string, isTemp bool, er
 		"-y",
 		tmp.Name(),
 	)
-	cmd.Stderr = os.Stderr
+	var ffmpegOutput bytes.Buffer
+	cmd.Stdout = &ffmpegOutput
+	cmd.Stderr = &ffmpegOutput
 	if err := cmd.Run(); err != nil {
 		os.Remove(tmp.Name())
-		return "", false, fmt.Errorf("compress audio: %w", err)
+		return "", false, fmt.Errorf("compress audio: %w\n%s", err, ffmpegOutput.String())
 	}
 
 	compressed, err := os.Stat(tmp.Name())

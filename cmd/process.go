@@ -49,23 +49,24 @@ var processCmd = &cobra.Command{
 				return err
 			}
 			if len(mp3s) == 0 {
-				fmt.Println("No mix MP3s found — mixing...")
+				fmt.Print("Creating chunks... ")
 				micDB, _ := cmd.Flags().GetFloat64("mic-volume")
 				sysDB, _ := cmd.Flags().GetFloat64("sys-volume")
-				result, err := conv.Convert(ctx, m, converter.Options{
+				_, err := conv.Convert(ctx, m, converter.Options{
 					MicVolumeDB: micDB,
 					SysVolumeDB: sysDB,
 				})
 				if err != nil {
+					fmt.Println()
 					return err
 				}
-				fmt.Printf("Created %d segment(s)\n", len(result.Segments))
+				fmt.Println("Done")
 				didSomething = true
 			}
 		}
 
 		if _, err := os.Stat(m.TranscriptPath()); os.IsNotExist(err) {
-			fmt.Println("No transcript found — transcribing...")
+			fmt.Println("Transcribing...")
 			var transcriptErr error
 			if dualChannel {
 				transcriptErr = trans.TranscribeMeetingDualChannel(ctx, m, lang)
@@ -75,7 +76,7 @@ var processCmd = &cobra.Command{
 			if transcriptErr != nil {
 				return transcriptErr
 			}
-			fmt.Printf("Saved: %s\n", m.TranscriptPath())
+			fmt.Println("Done")
 			didSomething = true
 		}
 

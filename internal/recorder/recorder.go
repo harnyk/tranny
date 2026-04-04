@@ -1,23 +1,49 @@
 package recorder
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/harnyk/tran/internal/config"
 	"github.com/harnyk/tran/internal/meeting"
 )
 
+// OutputInfo describes a single output file produced by the recorder.
+type OutputInfo struct {
+	File        string
+	Description string
+}
+
 type Recorder struct {
-	cfg *config.Config
+	cfg      *config.Config
+	monitor  string
+	mic      string
+	duration time.Duration
 }
 
 func New(cfg *config.Config) *Recorder {
 	return &Recorder{cfg: cfg}
+}
+
+// Outputs returns metadata about the files the recorder will produce.
+// Only valid after Record() has been called (devices are detected there).
+func (r *Recorder) Outputs(m *meeting.MeetingDir) []OutputInfo {
+	return []OutputInfo{
+		{File: "mic.mp3", Description: "Audio capture – " + r.mic},
+		{File: "sys.mp3", Description: "Audio capture – " + r.monitor},
+		{File: "record.mp4", Description: "Mixed audio + screen capture " + r.cfg.Display},
+	}
+}
+
+// Duration returns the recording duration. Only valid after Record() returns.
+func (r *Recorder) Duration() time.Duration {
+	return r.duration
 }
 
 // Record starts ffmpeg screen+audio recording. Blocks until ctx is cancelled.
@@ -31,6 +57,8 @@ func (r *Recorder) Record(ctx context.Context, m *meeting.MeetingDir) error {
 	if err != nil {
 		return fmt.Errorf("detect PulseAudio sources: %w", err)
 	}
+	r.monitor = monitor
+	r.mic = mic
 
 	if err := os.MkdirAll(m.SourceDir(), 0755); err != nil {
 		return fmt.Errorf("create source dir: %w", err)
@@ -74,8 +102,9 @@ func (r *Recorder) Record(ctx context.Context, m *meeting.MeetingDir) error {
 	}
 
 	cmd := exec.Command(r.cfg.FFmpegBin, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	var ffmpegOutput bytes.Buffer
+	cmd.Stdout = &ffmpegOutput
+	cmd.Stderr = &ffmpegOutput
 	// Run ffmpeg in its own process group so the terminal's Ctrl+C SIGINT
 	// doesn't reach it directly — we send the single clean SIGINT ourselves.
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
@@ -84,6 +113,7 @@ func (r *Recorder) Record(ctx context.Context, m *meeting.MeetingDir) error {
 		return fmt.Errorf("start ffmpeg: %w", err)
 	}
 
+	startedAt := time.Now()
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
 
@@ -92,9 +122,14 @@ func (r *Recorder) Record(ctx context.Context, m *meeting.MeetingDir) error {
 		// Graceful stop: SIGINT lets ffmpeg flush all output files cleanly
 		_ = cmd.Process.Signal(os.Interrupt)
 		<-done
+		r.duration = time.Since(startedAt)
 		return nil
 	case err := <-done:
-		return err
+		r.duration = time.Since(startedAt)
+		if err != nil {
+			return fmt.Errorf("ffmpeg exited with error: %w\n%s", err, ffmpegOutput.String())
+		}
+		return nil
 	}
 }
 

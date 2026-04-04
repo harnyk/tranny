@@ -1,6 +1,7 @@
 package converter
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -78,11 +79,12 @@ func (c *Converter) Convert(ctx context.Context, m *meeting.MeetingDir, opts Opt
 	}
 
 	cmd := exec.CommandContext(ctx, c.cfg.FFmpegBin, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	var ffmpegOutput bytes.Buffer
+	cmd.Stdout = &ffmpegOutput
+	cmd.Stderr = &ffmpegOutput
 
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("ffmpeg convert: %w", err)
+		return nil, fmt.Errorf("ffmpeg convert: %w\n%s", err, ffmpegOutput.String())
 	}
 
 	segments, err := m.ListMixMP3s()
