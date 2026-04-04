@@ -1,7 +1,6 @@
 package transcriber
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -13,12 +12,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 
+	"go.yaml.in/yaml/v3"
 	"golang.org/x/text/language"
 
 	"github.com/harnyk/tran/internal/config"
+	"github.com/harnyk/tran/internal/converter"
 	"github.com/harnyk/tran/internal/format"
 	"github.com/harnyk/tran/internal/meeting"
 )
@@ -175,7 +175,26 @@ func (t *Transcriber) transcribeFile(ctx context.Context, audioPath string, lang
 	return &result, nil
 }
 
-// segmentToTempDir splits audioPath into 963s chunks in a new temp directory.
+// channelTranscript is the YAML schema for intermediate per-channel transcript files.
+type channelTranscript struct {
+	Meeting string        `yaml:"meeting"`
+	Channel string        `yaml:"channel"`
+	Chunks  []chunkRecord `yaml:"chunks"`
+}
+
+type chunkRecord struct {
+	Index    int             `yaml:"index"`
+	Offset   float64         `yaml:"offset"`
+	Segments []segmentRecord `yaml:"segments"`
+}
+
+type segmentRecord struct {
+	Start float64 `yaml:"start"`
+	End   float64 `yaml:"end"`
+	Text  string  `yaml:"text"`
+}
+
+// segmentToTempDir splits audioPath into SegmentTime-second chunks in a new temp directory.
 // The caller must defer os.RemoveAll(tempDir) to clean up.
 func (t *Transcriber) segmentToTempDir(ctx context.Context, audioPath string) (chunks []string, tempDir string, err error) {
 	tempDir, err = os.MkdirTemp("", "tran-seg-*")
@@ -187,7 +206,7 @@ func (t *Transcriber) segmentToTempDir(ctx context.Context, audioPath string) (c
 	cmd := exec.CommandContext(ctx, t.cfg.FFmpegBin,
 		"-i", audioPath,
 		"-f", "segment",
-		"-segment_time", "963",
+		"-segment_time", fmt.Sprintf("%d", converter.SegmentTime),
 		"-segment_start_number", "1",
 		"-y",
 		pattern,
@@ -208,9 +227,10 @@ func (t *Transcriber) segmentToTempDir(ctx context.Context, audioPath string) (c
 }
 
 // TranscribeChannel transcribes a single audio file (e.g. source/mic.mp3) and writes
-// an intermediate transcript to outputPath. Timestamps are absolute (chunk offsets applied).
-// Lines are in the format: [M:SS.mmm] text
-func (t *Transcriber) TranscribeChannel(ctx context.Context, audioPath, lang, outputPath string) error {
+// a YAML intermediate transcript to outputPath.
+// Offset is computed as float64(chunkIndex) * SegmentTime — no dependency on Whisper's
+// reported duration, which can be unreliable for silent or very short chunks.
+func (t *Transcriber) TranscribeChannel(ctx context.Context, audioPath, lang, outputPath, channel, meetingName string) error {
 	chunks, tempDir, err := t.segmentToTempDir(ctx, audioPath)
 	if err != nil {
 		return err
@@ -221,10 +241,14 @@ func (t *Transcriber) TranscribeChannel(ctx context.Context, audioPath, lang, ou
 		return fmt.Errorf("no segments produced from %s", audioPath)
 	}
 
-	var sb strings.Builder
-	var offset float64
+	ct := channelTranscript{
+		Meeting: meetingName,
+		Channel: channel,
+	}
+
 	for i, chunk := range chunks {
 		chunkNum := i + 1
+		offset := float64(i) * converter.SegmentTime
 		fmt.Fprintf(os.Stderr, "  chunk %03d/%03d: %s\n", chunkNum, len(chunks), filepath.Base(chunk))
 
 		result, err := t.transcribeFile(ctx, chunk, lang)
@@ -232,107 +256,74 @@ func (t *Transcriber) TranscribeChannel(ctx context.Context, audioPath, lang, ou
 			return fmt.Errorf("chunk %03d: %w", chunkNum, err)
 		}
 
+		rec := chunkRecord{Index: chunkNum, Offset: offset}
 		for _, seg := range result.Segments {
-			fmt.Fprintf(&sb, "[%s] %s\n", format.Timestamp(seg.Start+offset), strings.TrimSpace(seg.Text))
+			rec.Segments = append(rec.Segments, segmentRecord{
+				Start: seg.Start,
+				End:   seg.End,
+				Text:  strings.TrimSpace(seg.Text),
+			})
 		}
-		offset += result.Duration
+		ct.Chunks = append(ct.Chunks, rec)
 	}
 
-	return os.WriteFile(outputPath, []byte(sb.String()), 0644)
-}
-
-type channelSegment struct {
-	seconds float64
-	speaker string
-	text    string
-}
-
-// parseTimestampSeconds converts a timestamp string produced by format.Timestamp back to seconds.
-// Accepts M:SS.mmm or H:MM:SS.mmm (with or without milliseconds).
-func parseTimestampSeconds(s string) (float64, error) {
-	parts := strings.Split(s, ":")
-	switch len(parts) {
-	case 2: // M:SS.mmm
-		mins, err := strconv.ParseFloat(parts[0], 64)
-		if err != nil {
-			return 0, err
-		}
-		secs, err := strconv.ParseFloat(parts[1], 64)
-		if err != nil {
-			return 0, err
-		}
-		return mins*60 + secs, nil
-	case 3: // H:MM:SS.mmm
-		hours, err := strconv.ParseFloat(parts[0], 64)
-		if err != nil {
-			return 0, err
-		}
-		mins, err := strconv.ParseFloat(parts[1], 64)
-		if err != nil {
-			return 0, err
-		}
-		secs, err := strconv.ParseFloat(parts[2], 64)
-		if err != nil {
-			return 0, err
-		}
-		return hours*3600 + mins*60 + secs, nil
-	default:
-		return 0, fmt.Errorf("unrecognised timestamp %q", s)
+	data, err := yaml.Marshal(&ct)
+	if err != nil {
+		return fmt.Errorf("marshal yaml: %w", err)
 	}
+	return os.WriteFile(outputPath, data, 0644)
 }
 
-// parseChannelFile reads an intermediate transcript file and returns parsed segments tagged with speaker.
-// Line format: [M:SS.mmm] text
-func parseChannelFile(path, speaker string) ([]channelSegment, error) {
-	f, err := os.Open(path)
+type mergeSegment struct {
+	absSeconds float64
+	speaker    string
+	text       string
+}
+
+// readChannelTranscript reads a YAML intermediate file and returns merge-ready segments.
+func readChannelTranscript(path, speaker string) ([]mergeSegment, error) {
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-
-	var segs []channelSegment
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if !strings.HasPrefix(line, "[") {
-			continue
-		}
-		end := strings.Index(line, "]")
-		if end < 0 {
-			continue
-		}
-		ts := line[1:end]
-		text := strings.TrimSpace(line[end+1:])
-		secs, err := parseTimestampSeconds(ts)
-		if err != nil {
-			continue
-		}
-		segs = append(segs, channelSegment{seconds: secs, speaker: speaker, text: text})
+	var ct channelTranscript
+	if err := yaml.Unmarshal(data, &ct); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
-	return segs, scanner.Err()
+	var segs []mergeSegment
+	for _, chunk := range ct.Chunks {
+		for _, seg := range chunk.Segments {
+			segs = append(segs, mergeSegment{
+				absSeconds: chunk.Offset + seg.Start,
+				speaker:    speaker,
+				text:       seg.Text,
+			})
+		}
+	}
+	return segs, nil
 }
 
-// MergeChannelTranscripts combines intermediate per-channel transcripts into a single
+// MergeChannelTranscripts combines intermediate per-channel YAML transcripts into a single
 // transcript.txt with Us/Them speaker labels sorted by timestamp.
 func (t *Transcriber) MergeChannelTranscripts(micPath, sysPath, outputPath, meetingName string) error {
-	micSegs, err := parseChannelFile(micPath, "Us")
+	micSegs, err := readChannelTranscript(micPath, "Us")
 	if err != nil {
 		return fmt.Errorf("read mic transcript: %w", err)
 	}
-	sysSegs, err := parseChannelFile(sysPath, "Them")
+	sysSegs, err := readChannelTranscript(sysPath, "Them")
 	if err != nil {
 		return fmt.Errorf("read sys transcript: %w", err)
 	}
 
 	all := append(micSegs, sysSegs...)
 	sort.SliceStable(all, func(i, j int) bool {
-		return all[i].seconds < all[j].seconds
+		return all[i].absSeconds < all[j].absSeconds
 	})
 
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "---\nmeeting: %s\n---\n\n", meetingName)
 	for _, seg := range all {
-		fmt.Fprintf(&sb, "[%s] %s: %s\n", format.Timestamp(seg.seconds), seg.speaker, seg.text)
+		fmt.Fprintf(&sb, "[%s] %s: %s\n", format.Timestamp(seg.absSeconds), seg.speaker, seg.text)
 	}
 
 	return os.WriteFile(outputPath, []byte(sb.String()), 0644)
@@ -351,9 +342,11 @@ func (t *Transcriber) TranscribeMeetingDualChannel(ctx context.Context, m *meeti
 		return err
 	}
 
+	meetingName := filepath.Base(m.Path)
+
 	if _, err := os.Stat(m.TranscriptMicPath()); os.IsNotExist(err) {
 		fmt.Fprintf(os.Stderr, "Transcribing mic channel (%s)...\n", m.MicMP3Path())
-		if err := t.TranscribeChannel(ctx, m.MicMP3Path(), apiLanguage, m.TranscriptMicPath()); err != nil {
+		if err := t.TranscribeChannel(ctx, m.MicMP3Path(), apiLanguage, m.TranscriptMicPath(), "mic", meetingName); err != nil {
 			return fmt.Errorf("mic channel: %w", err)
 		}
 	} else {
@@ -362,7 +355,7 @@ func (t *Transcriber) TranscribeMeetingDualChannel(ctx context.Context, m *meeti
 
 	if _, err := os.Stat(m.TranscriptSysPath()); os.IsNotExist(err) {
 		fmt.Fprintf(os.Stderr, "Transcribing sys channel (%s)...\n", m.SysMP3Path())
-		if err := t.TranscribeChannel(ctx, m.SysMP3Path(), apiLanguage, m.TranscriptSysPath()); err != nil {
+		if err := t.TranscribeChannel(ctx, m.SysMP3Path(), apiLanguage, m.TranscriptSysPath(), "sys", meetingName); err != nil {
 			return fmt.Errorf("sys channel: %w", err)
 		}
 	} else {
@@ -370,7 +363,7 @@ func (t *Transcriber) TranscribeMeetingDualChannel(ctx context.Context, m *meeti
 	}
 
 	fmt.Fprintf(os.Stderr, "Merging transcripts...\n")
-	return t.MergeChannelTranscripts(m.TranscriptMicPath(), m.TranscriptSysPath(), m.TranscriptPath(), filepath.Base(m.Path))
+	return t.MergeChannelTranscripts(m.TranscriptMicPath(), m.TranscriptSysPath(), m.TranscriptPath(), meetingName)
 }
 
 // prepareAudio returns the path to use (may be a compressed temp file if >25MB).
