@@ -24,3 +24,8 @@ tasks:
   clean:
     cmds:
       - rm -f tran
+
+  test:integration:prepare:
+    desc: "Generate TTS audio assets for integration tests (requires OpenAI API key)"
+    cmds:
+      - go run ./integration-test/prepare
