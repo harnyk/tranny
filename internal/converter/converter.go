@@ -11,8 +11,11 @@ import (
 	"github.com/harnyk/tran/internal/meeting"
 )
 
-// segmentTime is computed as 23MB * 8 bits / 192kbps = 963 seconds
-const segmentTime = 963
+// SegmentTime is the audio chunk duration in seconds (23MB * 8 bits / 192kbps = 963s).
+const SegmentTime = 963
+
+// keep unexported alias so the rest of this file compiles unchanged
+const segmentTime = SegmentTime
 
 type Converter struct {
 	cfg *config.Config

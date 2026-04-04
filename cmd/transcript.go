@@ -39,9 +39,17 @@ var transcriptCmd = &cobra.Command{
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 
+		dualChannel, _ := cmd.Flags().GetBool("dual-channel")
+
 		fmt.Println("Transcribing...")
-		if err := trans.TranscribeMeeting(ctx, m, lang); err != nil {
-			return err
+		var transcriptErr error
+		if dualChannel {
+			transcriptErr = trans.TranscribeMeetingDualChannel(ctx, m, lang)
+		} else {
+			transcriptErr = trans.TranscribeMeeting(ctx, m, lang)
+		}
+		if transcriptErr != nil {
+			return transcriptErr
 		}
 
 		info, _ := os.Stat(m.TranscriptPath())
@@ -56,5 +64,6 @@ var transcriptCmd = &cobra.Command{
 
 func init() {
 	transcriptCmd.Flags().StringP("lang", "l", "en", "transcription language: ISO 639 code (2 or 3 letters, e.g. en, eng, pol) or auto")
+	transcriptCmd.Flags().BoolP("dual-channel", "d", false, "Transcribe mic and sys channels separately with Us/Them speaker labels")
 	rootCmd.AddCommand(transcriptCmd)
 }
