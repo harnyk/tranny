@@ -62,6 +62,14 @@ func main() {
 		fatalf("mkdir %s: %v", outDir, err)
 	}
 
+	// Remove stale artifacts so the prepare step always produces a fresh set.
+	for _, name := range []string{"mic.mp3", "sys.mp3", "record.mp4"} {
+		path := filepath.Join(outDir, name)
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			fatalf("remove %s: %v", path, err)
+		}
+	}
+
 	tmpDir, err := os.MkdirTemp("", "tran-prepare-*")
 	if err != nil {
 		fatalf("mktemp: %v", err)
