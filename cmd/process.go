@@ -40,33 +40,40 @@ var processCmd = &cobra.Command{
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 
-		mp3s, err := m.ListMixMP3s()
-		if err != nil {
-			return err
-		}
-
+		dualChannel, _ := cmd.Flags().GetBool("dual-channel")
 		didSomething := false
 
-		if len(mp3s) == 0 {
-			fmt.Println("No mix MP3s found — mixing...")
-			micDB, _ := cmd.Flags().GetFloat64("mic-volume")
-			sysDB, _ := cmd.Flags().GetFloat64("sys-volume")
-			result, err := conv.Convert(ctx, m, converter.Options{
-				MicVolumeDB: micDB,
-				SysVolumeDB: sysDB,
-			})
+		if !dualChannel {
+			mp3s, err := m.ListMixMP3s()
 			if err != nil {
 				return err
 			}
-			mp3s = result.Segments
-			fmt.Printf("Created %d segment(s)\n", len(mp3s))
-			didSomething = true
+			if len(mp3s) == 0 {
+				fmt.Println("No mix MP3s found — mixing...")
+				micDB, _ := cmd.Flags().GetFloat64("mic-volume")
+				sysDB, _ := cmd.Flags().GetFloat64("sys-volume")
+				result, err := conv.Convert(ctx, m, converter.Options{
+					MicVolumeDB: micDB,
+					SysVolumeDB: sysDB,
+				})
+				if err != nil {
+					return err
+				}
+				fmt.Printf("Created %d segment(s)\n", len(result.Segments))
+				didSomething = true
+			}
 		}
 
 		if _, err := os.Stat(m.TranscriptPath()); os.IsNotExist(err) {
 			fmt.Println("No transcript found — transcribing...")
-			if err := trans.TranscribeMeeting(ctx, m, lang); err != nil {
-				return err
+			var transcriptErr error
+			if dualChannel {
+				transcriptErr = trans.TranscribeMeetingDualChannel(ctx, m, lang)
+			} else {
+				transcriptErr = trans.TranscribeMeeting(ctx, m, lang)
+			}
+			if transcriptErr != nil {
+				return transcriptErr
 			}
 			fmt.Printf("Saved: %s\n", m.TranscriptPath())
 			didSomething = true
@@ -83,5 +90,6 @@ func init() {
 	processCmd.Flags().StringP("lang", "l", "en", "transcription language: ISO 639 code (2 or 3 letters, e.g. en, eng, pol) or auto")
 	processCmd.Flags().Float64("mic-volume", 0, "microphone volume adjustment in dB (e.g. 3 or -6)")
 	processCmd.Flags().Float64("sys-volume", 0, "system audio volume adjustment in dB (e.g. 3 or -6)")
+	processCmd.Flags().BoolP("dual-channel", "d", false, "Transcribe mic and sys channels separately with Us/Them speaker labels")
 	rootCmd.AddCommand(processCmd)
 }
