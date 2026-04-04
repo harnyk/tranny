@@ -2,9 +2,12 @@
 tran
 
 # Meeting data directories (large files)
-*/record.mkv
-*/record-*.mp3
-*/transcript.txt
+[0-9][0-9][0-9][0-9]-[0-9][0-9]-*/record.mkv
+[0-9][0-9][0-9][0-9]-[0-9][0-9]-*/record-*.mp3
+[0-9][0-9][0-9][0-9]-[0-9][0-9]-*/transcript.txt
+
+# Integration test artifacts (generated at test runtime)
+integration-test/assets/meeting/transcript/
 
 # Go
 *.test
