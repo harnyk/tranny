@@ -112,7 +112,34 @@ func main() {
 		fatalf("build sys track: %v", err)
 	}
 
-	fmt.Printf("Done. Output:\n  %s\n  %s\n", micOut, sysOut)
+	recordOut := filepath.Join(outDir, "record.mp4")
+	fmt.Println("Building record.mp4 ...")
+	if err := buildRecording(cfg.FFmpegBin, micOut, sysOut, totalDuration, recordOut); err != nil {
+		fatalf("build record: %v", err)
+	}
+
+	fmt.Printf("Done. Output:\n  %s\n  %s\n  %s\n", micOut, sysOut, recordOut)
+}
+
+// buildRecording mixes mic and sys audio over a black video of the same duration.
+func buildRecording(ffmpegBin, micFile, sysFile string, totalDuration float64, outFile string) error {
+	args := []string{
+		"-y",
+		"-f", "lavfi", "-i", fmt.Sprintf("color=c=black:s=1280x720:r=25:d=%.3f", totalDuration),
+		"-i", micFile,
+		"-i", sysFile,
+		"-filter_complex", "[1][2]amix=inputs=2:normalize=0[audio]",
+		"-map", "0:v",
+		"-map", "[audio]",
+		"-c:v", "libx264", "-preset", "ultrafast", "-tune", "stillimage",
+		"-c:a", "aac",
+		"-t", fmt.Sprintf("%.3f", totalDuration),
+		outFile,
+	}
+	cmd := exec.Command(ffmpegBin, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 func generateTTS(apiKey, text, voice, outFile string) error {
