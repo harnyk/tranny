@@ -28,12 +28,11 @@ func New(cfg *config.Config) *Recorder {
 }
 
 // Outputs returns metadata about the files the recorder will produce.
-// Only valid after Record() has been called (devices are detected there).
 func (r *Recorder) Outputs(m *meeting.MeetingDir) []OutputInfo {
 	return []OutputInfo{
-		{File: "mic.mp3", Description: "Audio capture – " + r.mic},
-		{File: "sys.mp3", Description: "Audio capture – " + r.monitor},
-		{File: "record.mp4", Description: "Mixed audio + screen capture " + r.cfg.Display},
+		{File: "mic.mp3", Description: "Audio capture – microphone (PulseAudio default source)"},
+		{File: "sys.mp3", Description: "Audio capture – system audio (PulseAudio default monitor)"},
+		{File: "record.mp4", Description: "Screen capture " + r.cfg.Display + " + mixed audio"},
 	}
 }
 
