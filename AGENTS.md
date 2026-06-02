@@ -78,6 +78,9 @@ internal/transcriber/ OpenAI transcription client, dual-channel merge logic
 - Mixed-audio chunking uses 192 kbps mono MP3 segments with `converter.SegmentTime == 963`.
 - Files over the OpenAI upload limit are re-encoded to a temporary 64 kbps / 16 kHz mono MP3 before upload.
 - Dual-channel transcript merging sorts segments by absolute timestamp and labels speakers as `Us` and `Them`.
+- On macOS, `tran rec` uses `audiotee` (ScreenCaptureKit) for system audio and `ffmpeg -f avfoundation`
+  for microphone. `record.mp4` is not produced. Screen Recording and Microphone permissions must be
+  granted to the terminal that runs `tran`.
 
 ## Config
 
@@ -88,6 +91,10 @@ OPENAI_API_KEY=sk-...
 OPENAI_MODEL_STT=whisper-1
 FFMPEG_BIN=ffmpeg
 DISPLAY=:0
+
+# macOS only
+AUDIOTEE_BIN=/path/to/audiotee/.build/release/audiotee
+AVFOUNDATION_MIC_INDEX=0
 ```
 
 Environment variables override file values.
