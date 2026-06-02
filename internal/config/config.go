@@ -8,10 +8,12 @@ import (
 )
 
 type Config struct {
-	OpenAIAPIKey string
-	STTModel     string
-	FFmpegBin    string
-	Display      string
+	OpenAIAPIKey   string
+	STTModel       string
+	FFmpegBin      string
+	Display        string
+	AudioTeeBin    string
+	MicDeviceIndex string
 }
 
 func Load() (*Config, error) {
@@ -29,10 +31,12 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{
-		OpenAIAPIKey: os.Getenv("OPENAI_API_KEY"),
-		STTModel:     envOrDefault("OPENAI_MODEL_STT", "whisper-1"),
-		FFmpegBin:    envOrDefault("FFMPEG_BIN", "ffmpeg"),
-		Display:      envOrDefault("DISPLAY", ":0"),
+		OpenAIAPIKey:   os.Getenv("OPENAI_API_KEY"),
+		STTModel:       envOrDefault("OPENAI_MODEL_STT", "whisper-1"),
+		FFmpegBin:      envOrDefault("FFMPEG_BIN", "ffmpeg"),
+		Display:        envOrDefault("DISPLAY", ":0"),
+		AudioTeeBin:    envOrDefault("AUDIOTEE_BIN", "audiotee"),
+		MicDeviceIndex: envOrDefault("AVFOUNDATION_MIC_INDEX", "0"),
 	}
 	return cfg, nil
 }
