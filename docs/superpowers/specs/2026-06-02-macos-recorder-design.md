@@ -98,10 +98,25 @@ Returns only two entries (no `record.mp4`):
 
 | Situation | Behaviour |
 |-----------|-----------|
-| `audiotee` not found / not executable | Return error before starting any process |
+| `audiotee` not found / not executable | Return error before starting any process; error message includes install instructions (see below) |
 | `audiotee` exits before ctx cancelled | Cancel mic pipeline, return wrapped error |
 | `ffMic` exits before ctx cancelled | Cancel sys pipeline, return wrapped error |
 | Both exit cleanly after SIGINT | Return `nil` |
+
+## audiotee Not Found Error Message
+
+When `audiotee` is not found, `tran rec` prints a multi-line error that includes build instructions:
+
+```
+audiotee not found (looked for "audiotee" in PATH).
+To build it:
+  git clone --depth 1 https://github.com/makeusabrew/audiotee.git
+  cd audiotee
+  swift build -c release
+Then set AUDIOTEE_BIN=/path/to/audiotee/.build/release/audiotee in ~/.config/tran/config
+```
+
+The quoted binary path in the first line reflects whatever `cfg.AudioTeeBin` was resolved to (e.g. an explicit path from `AUDIOTEE_BIN` that doesn't exist).
 
 ## Prerequisites for Users
 
