@@ -259,7 +259,7 @@ func (t *Transcriber) MergeChannelTranscripts(micPath, sysPath, outputPath, meet
 }
 
 // TranscribeMeetingDualChannel transcribes mic and sys channels separately, writes
-// intermediate transcript_mic.txt and transcript_sys.txt, then merges into transcript.txt.
+// intermediate transcript_mic.yaml and transcript_sys.yaml, then merges into transcript.txt.
 // If an intermediate file already exists it is reused (skips re-transcription).
 func (t *Transcriber) TranscribeMeetingDualChannel(ctx context.Context, m *meeting.MeetingDir, lang string) error {
 	apiLanguage, err := NormalizeLanguage(lang)

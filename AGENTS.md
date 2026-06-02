@@ -78,7 +78,7 @@ internal/transcriber/ meeting transcription orchestration, dual-channel merge lo
 - `meeting.Detect()` checks for `source/`, not a top-level media file.
 - Mixed-audio chunking uses 192 kbps mono MP3 segments with `converter.SegmentTime == 963`.
 - Cloud providers (`openai`, `groq`) re-encode files over the upload limit to a temporary 64 kbps / 16 kHz mono MP3 before upload.
-- `STT_PROVIDER` has no default; `stt.NewProvider` fails fast if unset or unknown.
+- `STT_PROVIDER` has no default; `stt.NewProvider` fails fast at CLI startup (all subcommands) if unset or unknown.
 - Dual-channel transcript merging sorts segments by absolute timestamp and labels speakers as `Us` and `Them`.
 - On macOS, `tran rec` uses `audiotee` (ScreenCaptureKit) for system audio and `ffmpeg -f avfoundation`
   for microphone. `record.mp4` is not produced. Screen Recording and Microphone permissions must be

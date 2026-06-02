@@ -31,7 +31,7 @@ Environment variables override file values.
 
 ### Speech-to-text providers
 
-**Breaking change:** `tran transcript` and `tran process` require `STT_PROVIDER`. Setting `OPENAI_API_KEY` alone is no longer enough; pick a provider explicitly.
+**Breaking change:** every `tran` command validates `STT_PROVIDER` at startup (including `rec` and `soundmix`). Setting `OPENAI_API_KEY` alone is no longer enough; pick a provider explicitly before running any subcommand.
 
 | Provider | Value | Required env vars |
 |---|---|---|

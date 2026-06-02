@@ -17,9 +17,8 @@ import (
 var mlxFirstRun sync.Once
 
 type mlxProvider struct {
-	uvx       string
-	model     string
-	ffmpegBin string
+	uvx   string
+	model string
 }
 
 func newMLXProvider(cfg *config.Config) (Provider, error) {
@@ -30,9 +29,8 @@ func newMLXProvider(cfg *config.Config) (Provider, error) {
 		)
 	}
 	return &mlxProvider{
-		uvx:       cfg.UVXBin,
-		model:     cfg.MLXWhisperModel,
-		ffmpegBin: cfg.FFmpegBin,
+		uvx:   cfg.UVXBin,
+		model: cfg.MLXWhisperModel,
 	}, nil
 }
 

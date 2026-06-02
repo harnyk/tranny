@@ -176,7 +176,11 @@ func (p *httpProvider) Transcribe(ctx context.Context, audioPath, language strin
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%s API error %d: %s", p.apiName, resp.StatusCode, string(respBytes))
+		msg := fmt.Sprintf("%s API error %d: %s", p.apiName, resp.StatusCode, string(respBytes))
+		if p.apiName == "Groq" && resp.StatusCode == http.StatusTooManyRequests {
+			msg += "\nGroq free tier rate limits apply — see https://console.groq.com/docs/rate-limits"
+		}
+		return nil, fmt.Errorf("%s", msg)
 	}
 
 	return parseVerboseJSON(respBytes)
