@@ -61,7 +61,8 @@ func (r *Recorder) Record(ctx context.Context, m *meeting.MeetingDir) error {
 	// sys pipeline: audiotee --stereo | ffmpeg -> sys.mp3
 	audioteeCmd := exec.Command(r.cfg.AudioTeeBin, "--stereo", "--sample-rate", "48000")
 	audioteeCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	audioteeCmd.Stderr = nil // suppress audiotee status messages
+	var audioteeOutput bytes.Buffer
+	audioteeCmd.Stderr = &audioteeOutput
 
 	sysOut, err := audioteeCmd.StdoutPipe()
 	if err != nil {
@@ -128,9 +129,9 @@ func (r *Recorder) Record(ctx context.Context, m *meeting.MeetingDir) error {
 			return nil
 		}
 		if err != nil {
-			return fmt.Errorf("audiotee exited unexpectedly: %w", err)
+			return fmt.Errorf("audiotee exited unexpectedly: %w\n%s", err, audioteeOutput.String())
 		}
-		return fmt.Errorf("audiotee exited unexpectedly: exit status 0")
+		return fmt.Errorf("audiotee exited unexpectedly: exit status 0\n%s", audioteeOutput.String())
 	})
 
 	eg.Go(func() error {
