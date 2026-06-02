@@ -44,8 +44,8 @@ func TestDualChannelTranscription(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
-	if cfg.OpenAIAPIKey == "" {
-		t.Skip("OPENAI_API_KEY not set")
+	if cfg.STTProvider != "openai" || cfg.OpenAIAPIKey == "" {
+		t.Skip("integration test requires STT_PROVIDER=openai and OPENAI_API_KEY")
 	}
 
 	meetingPath, err := filepath.Abs("assets/meeting")

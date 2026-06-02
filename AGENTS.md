@@ -8,7 +8,7 @@ Repo notes for coding agents working in this project.
 - Language: Go
 - CLI framework: `cobra`
 - Config loading: `godotenv`-style file plus environment overrides
-- Main purpose: record meetings, prepare audio, and transcribe them with OpenAI
+- Main purpose: record meetings, prepare audio, and transcribe them via a pluggable STT provider
 
 ## Current CLI surface
 
@@ -69,14 +69,16 @@ internal/converter/   soundmix pipeline: mic + sys -> segmented MP3 chunks
 internal/format/      timestamp formatting
 internal/meeting/     meeting directory creation, detection, path helpers
 internal/recorder/    ffmpeg recording orchestration
-internal/transcriber/ OpenAI transcription client, dual-channel merge logic
+internal/stt/         STT provider interface and implementations (openai, groq, whispercpp, mlx)
+internal/transcriber/ meeting transcription orchestration, dual-channel merge logic
 ```
 
 ## Important implementation details
 
 - `meeting.Detect()` checks for `source/`, not a top-level media file.
 - Mixed-audio chunking uses 192 kbps mono MP3 segments with `converter.SegmentTime == 963`.
-- Files over the OpenAI upload limit are re-encoded to a temporary 64 kbps / 16 kHz mono MP3 before upload.
+- Cloud providers (`openai`, `groq`) re-encode files over the upload limit to a temporary 64 kbps / 16 kHz mono MP3 before upload.
+- `STT_PROVIDER` has no default; `stt.NewProvider` fails fast if unset or unknown.
 - Dual-channel transcript merging sorts segments by absolute timestamp and labels speakers as `Us` and `Them`.
 - On macOS, `tran rec` uses `audiotee` (ScreenCaptureKit) for system audio and `ffmpeg -f avfoundation`
   for microphone. `record.mp4` is not produced. Screen Recording and Microphone permissions must be
@@ -86,7 +88,22 @@ internal/transcriber/ OpenAI transcription client, dual-channel merge logic
 
 Config file: `~/.config/tran/config`
 
+`STT_PROVIDER` is required (no default). Valid values: `openai` | `groq` | `whispercpp` | `mlx` (macOS only).
+
+| Field | Env var | Used by | Default |
+|-------|---------|---------|---------|
+| `STTProvider` | `STT_PROVIDER` | all | *(none — required)* |
+| `OpenAIAPIKey` | `OPENAI_API_KEY` | openai | — |
+| `OpenAIModelSTT` | `OPENAI_MODEL_STT` | openai | `whisper-1` |
+| `GroqAPIKey` | `GROQ_API_KEY` | groq | — |
+| `GroqModelSTT` | `GROQ_MODEL_STT` | groq | `whisper-large-v3-turbo` |
+| `WhisperCppBin` | `WHISPER_CPP_BIN` | whispercpp | `whisper-cli` |
+| `WhisperModelPath` | `WHISPER_MODEL_PATH` | whispercpp | — |
+| `UVXBin` | `UVX_BIN` | mlx | `uvx` |
+| `MLXWhisperModel` | `MLX_WHISPER_MODEL` | mlx | `mlx-community/whisper-large-v3-turbo` |
+
 ```env
+STT_PROVIDER=openai
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL_STT=whisper-1
 FFMPEG_BIN=ffmpeg

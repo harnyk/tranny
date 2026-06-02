@@ -20,6 +20,7 @@ Requires `ffmpeg` and `pactl` (PulseAudio) on `$PATH`.
 `~/.config/tran/config` (godotenv format):
 
 ```
+STT_PROVIDER=openai
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL_STT=whisper-1
 FFMPEG_BIN=ffmpeg
@@ -27,6 +28,52 @@ DISPLAY=:0
 ```
 
 Environment variables override file values.
+
+### Speech-to-text providers
+
+**Breaking change:** `tran transcript` and `tran process` require `STT_PROVIDER`. Setting `OPENAI_API_KEY` alone is no longer enough; pick a provider explicitly.
+
+| Provider | Value | Required env vars |
+|---|---|---|
+| OpenAI | `openai` | `OPENAI_API_KEY` |
+| Groq | `groq` | `GROQ_API_KEY` |
+| whisper.cpp | `whispercpp` | `WHISPER_MODEL_PATH` (optional: `WHISPER_CPP_BIN`, default `whisper-cli`) |
+| MLX Whisper | `mlx` | macOS only; uses `uvx` (optional: `UVX_BIN`, `MLX_WHISPER_MODEL`) |
+
+**OpenAI:**
+
+```
+STT_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL_STT=whisper-1
+```
+
+**Groq** (OpenAI-compatible Whisper API; get a key at [console.groq.com/keys](https://console.groq.com/keys)):
+
+```
+STT_PROVIDER=groq
+GROQ_API_KEY=gsk_...
+GROQ_MODEL_STT=whisper-large-v3-turbo
+```
+
+**whisper.cpp** (local, any OS with binary + model):
+
+```
+STT_PROVIDER=whispercpp
+WHISPER_CPP_BIN=whisper-cli
+WHISPER_MODEL_PATH=/path/to/ggml-large-v3-turbo.bin
+```
+
+Install the binary with `brew install whisper-cpp` (or build from [ggml-org/whisper.cpp](https://github.com/ggml-org/whisper.cpp)), then download a ggml model (e.g. run `./models/download-ggml-model.sh large-v3-turbo` in the whisper.cpp repo).
+
+**MLX** (local on Apple Silicon via [uv](https://docs.astral.sh/uv/) / `uvx`; macOS only):
+
+```
+STT_PROVIDER=mlx
+MLX_WHISPER_MODEL=mlx-community/whisper-large-v3-turbo
+```
+
+Install uv: `curl -LsSf https://astral.sh/uv/install.sh | sh`. The first `tran transcript` run downloads the MLX packages via `uvx`.
 
 ## Meeting directory layout
 
@@ -81,7 +128,7 @@ tran soundmix --mic-volume 6 --sys-volume -3
 ### `tran transcript`
 
 Run from the meeting directory. Sends each `mix/record-NNN.mp3` chunk to the
-OpenAI Whisper API and writes `transcript/transcript.txt` with segment-level
+configured STT provider and writes `transcript/transcript.txt` with segment-level
 timestamps.
 
 With `--dual-channel` / `-d`, skips `mix/` entirely: `source/mic.mp3` and
