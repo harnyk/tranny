@@ -23,3 +23,21 @@ func TestNewProviderUnknown(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestNewWhisperCppMissingModel(t *testing.T) {
+	_, err := NewProvider(&config.Config{
+		STTProvider:    "whispercpp",
+		WhisperCppBin:  "/usr/bin/true",
+		WhisperModelPath: "",
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "WHISPER_MODEL_PATH") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(msg, "ggml-org/whisper.cpp") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
