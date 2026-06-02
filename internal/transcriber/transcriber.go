@@ -135,7 +135,7 @@ func (t *Transcriber) transcribeFile(ctx context.Context, audioPath string, lang
 
 	var body bytes.Buffer
 	w := multipart.NewWriter(&body)
-	if err := writeTranscriptionFields(w, t.cfg.STTModel, language); err != nil {
+	if err := writeTranscriptionFields(w, t.cfg.OpenAIModelSTT, language); err != nil {
 		return nil, err
 	}
 
