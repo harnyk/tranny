@@ -61,7 +61,10 @@ func TestDualChannelTranscription(t *testing.T) {
 		os.RemoveAll(m.TranscriptDir())
 	})
 
-	tr := transcriber.New(cfg)
+	tr, err := transcriber.New(cfg)
+	if err != nil {
+		t.Fatalf("transcriber.New: %v", err)
+	}
 	if err := tr.TranscribeMeetingDualChannel(context.Background(), m, "en"); err != nil {
 		t.Fatalf("TranscribeMeetingDualChannel: %v", err)
 	}

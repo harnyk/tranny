@@ -3,11 +3,7 @@ package transcriber
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"mime/multipart"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,40 +17,24 @@ import (
 	"github.com/harnyk/tran/internal/converter"
 	"github.com/harnyk/tran/internal/format"
 	"github.com/harnyk/tran/internal/meeting"
-)
-
-const (
-	whisperURL   = "https://api.openai.com/v1/audio/transcriptions"
-	maxSizeBytes = 25 * 1024 * 1024 // 25 MB OpenAI limit
+	"github.com/harnyk/tran/internal/stt"
 )
 
 type Transcriber struct {
-	cfg    *config.Config
-	client *http.Client
+	cfg      *config.Config
+	provider stt.Provider
 }
 
-func New(cfg *config.Config) *Transcriber {
-	return &Transcriber{cfg: cfg, client: &http.Client{}}
-}
-
-type whisperSegment struct {
-	Start float64 `json:"start"`
-	End   float64 `json:"end"`
-	Text  string  `json:"text"`
-}
-
-type whisperResponse struct {
-	Text     string           `json:"text"`
-	Duration float64          `json:"duration"`
-	Segments []whisperSegment `json:"segments"`
+func New(cfg *config.Config) (*Transcriber, error) {
+	provider, err := stt.NewProvider(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Transcriber{cfg: cfg, provider: provider}, nil
 }
 
 // TranscribeMeeting transcribes all MP3 chunks in a meeting dir and writes transcript.txt.
 func (t *Transcriber) TranscribeMeeting(ctx context.Context, m *meeting.MeetingDir, lang string) error {
-	if t.cfg.OpenAIAPIKey == "" {
-		return fmt.Errorf("OPENAI_API_KEY is not set — add it to ~/.config/tran/config")
-	}
-
 	apiLanguage, err := NormalizeLanguage(lang)
 	if err != nil {
 		return err
@@ -105,75 +85,15 @@ func NormalizeLanguage(lang string) (string, error) {
 	return base.String(), nil
 }
 
-func writeTranscriptionFields(w *multipart.Writer, model string, language string) error {
-	if err := w.WriteField("model", model); err != nil {
-		return err
-	}
-	if err := w.WriteField("language", language); err != nil {
-		return err
-	}
-	if err := w.WriteField("response_format", "verbose_json"); err != nil {
-		return err
-	}
-	return w.WriteField("timestamp_granularities[]", "segment")
-}
-
-func (t *Transcriber) transcribeFile(ctx context.Context, audioPath string, language string) (*whisperResponse, error) {
-	path, isTemp, err := t.prepareAudio(audioPath)
+func (t *Transcriber) transcribeFile(ctx context.Context, audioPath string, language string) (*stt.Result, error) {
+	result, err := t.provider.Transcribe(ctx, audioPath, language)
 	if err != nil {
 		return nil, err
 	}
-	if isTemp {
-		defer os.Remove(path)
+	if len(result.Segments) == 0 {
+		return nil, fmt.Errorf("no segments in transcription response")
 	}
-
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	var body bytes.Buffer
-	w := multipart.NewWriter(&body)
-	if err := writeTranscriptionFields(w, t.cfg.OpenAIModelSTT, language); err != nil {
-		return nil, err
-	}
-
-	fw, err := w.CreateFormFile("file", filepath.Base(path))
-	if err != nil {
-		return nil, err
-	}
-	if _, err := io.Copy(fw, f); err != nil {
-		return nil, err
-	}
-	w.Close()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, whisperURL, &body)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+t.cfg.OpenAIAPIKey)
-	req.Header.Set("Content-Type", w.FormDataContentType())
-
-	resp, err := t.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("OpenAI API error %d: %s", resp.StatusCode, string(respBytes))
-	}
-
-	var result whisperResponse
-	if err := json.Unmarshal(respBytes, &result); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-	return &result, nil
+	return result, nil
 }
 
 // channelTranscript is the YAML schema for intermediate per-channel transcript files.
@@ -342,10 +262,6 @@ func (t *Transcriber) MergeChannelTranscripts(micPath, sysPath, outputPath, meet
 // intermediate transcript_mic.txt and transcript_sys.txt, then merges into transcript.txt.
 // If an intermediate file already exists it is reused (skips re-transcription).
 func (t *Transcriber) TranscribeMeetingDualChannel(ctx context.Context, m *meeting.MeetingDir, lang string) error {
-	if t.cfg.OpenAIAPIKey == "" {
-		return fmt.Errorf("OPENAI_API_KEY is not set — add it to ~/.config/tran/config")
-	}
-
 	apiLanguage, err := NormalizeLanguage(lang)
 	if err != nil {
 		return err
@@ -367,50 +283,4 @@ func (t *Transcriber) TranscribeMeetingDualChannel(ctx context.Context, m *meeti
 
 	fmt.Println("  merging channels")
 	return t.MergeChannelTranscripts(m.TranscriptMicPath(), m.TranscriptSysPath(), m.TranscriptPath(), meetingName)
-}
-
-// prepareAudio returns the path to use (may be a compressed temp file if >25MB).
-func (t *Transcriber) prepareAudio(path string) (outPath string, isTemp bool, err error) {
-	info, err := os.Stat(path)
-	if err != nil {
-		return "", false, err
-	}
-	if info.Size() <= maxSizeBytes {
-		return path, false, nil
-	}
-
-	// Compress to temp file: 64kbps mono 16kHz
-	tmp, err := os.CreateTemp("", "tran-*.mp3")
-	if err != nil {
-		return "", false, err
-	}
-	tmp.Close()
-
-	cmd := exec.Command(t.cfg.FFmpegBin,
-		"-i", path,
-		"-ar", "16000",
-		"-ac", "1",
-		"-b:a", "64k",
-		"-y",
-		tmp.Name(),
-	)
-	var ffmpegOutput bytes.Buffer
-	cmd.Stdout = &ffmpegOutput
-	cmd.Stderr = &ffmpegOutput
-	if err := cmd.Run(); err != nil {
-		os.Remove(tmp.Name())
-		return "", false, fmt.Errorf("compress audio: %w\n%s", err, ffmpegOutput.String())
-	}
-
-	compressed, err := os.Stat(tmp.Name())
-	if err != nil {
-		os.Remove(tmp.Name())
-		return "", false, err
-	}
-	if compressed.Size() > maxSizeBytes {
-		os.Remove(tmp.Name())
-		return "", false, fmt.Errorf("compressed file still exceeds 25MB limit")
-	}
-
-	return tmp.Name(), true, nil
 }

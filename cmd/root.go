@@ -44,5 +44,9 @@ func initServices() {
 	}
 	rec = recorder.New(cfg)
 	conv = converter.New(cfg)
-	trans = transcriber.New(cfg)
+	trans, err = transcriber.New(cfg)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "transcriber:", err)
+		os.Exit(1)
+	}
 }
