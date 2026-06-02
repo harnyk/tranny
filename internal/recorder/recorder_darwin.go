@@ -97,11 +97,14 @@ func (r *Recorder) Record(ctx context.Context, m *meeting.MeetingDir) error {
 	}
 	if err := ffSysCmd.Start(); err != nil {
 		_ = syscall.Kill(-audioteeCmd.Process.Pid, syscall.SIGKILL)
+		_ = audioteeCmd.Wait()
 		return fmt.Errorf("start ffmpeg (sys): %w", err)
 	}
 	if err := ffMicCmd.Start(); err != nil {
 		_ = syscall.Kill(-audioteeCmd.Process.Pid, syscall.SIGKILL)
 		_ = syscall.Kill(-ffSysCmd.Process.Pid, syscall.SIGKILL)
+		_ = audioteeCmd.Wait()
+		_ = ffSysCmd.Wait()
 		return fmt.Errorf("start ffmpeg (mic): %w", err)
 	}
 
@@ -120,24 +123,36 @@ func (r *Recorder) Record(ctx context.Context, m *meeting.MeetingDir) error {
 	})
 
 	eg.Go(func() error {
-		if err := audioteeCmd.Wait(); err != nil && gctx.Err() == nil {
+		err := audioteeCmd.Wait()
+		if gctx.Err() != nil {
+			return nil
+		}
+		if err != nil {
 			return fmt.Errorf("audiotee exited unexpectedly: %w", err)
 		}
-		return nil
+		return fmt.Errorf("audiotee exited unexpectedly: exit status 0")
 	})
 
 	eg.Go(func() error {
-		if err := ffSysCmd.Wait(); err != nil && gctx.Err() == nil {
+		err := ffSysCmd.Wait()
+		if gctx.Err() != nil {
+			return nil
+		}
+		if err != nil {
 			return fmt.Errorf("ffmpeg (sys) exited with error: %w\n%s", err, ffSysOutput.String())
 		}
-		return nil
+		return fmt.Errorf("ffmpeg (sys) exited unexpectedly: exit status 0")
 	})
 
 	eg.Go(func() error {
-		if err := ffMicCmd.Wait(); err != nil && gctx.Err() == nil {
+		err := ffMicCmd.Wait()
+		if gctx.Err() != nil {
+			return nil
+		}
+		if err != nil {
 			return fmt.Errorf("ffmpeg (mic) exited with error: %w\n%s", err, ffMicOutput.String())
 		}
-		return nil
+		return fmt.Errorf("ffmpeg (mic) exited unexpectedly: exit status 0")
 	})
 
 	// Block until parent ctx is cancelled (Ctrl+C) or a process crashes.
