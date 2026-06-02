@@ -43,9 +43,9 @@ var recCmd = &cobra.Command{
 		// directory now and the device table after recording completes.
 		// Instead, print the table using info available from config + meeting dir.
 		fmt.Println("Recording media:")
-		fmt.Printf("  %-12s  Audio capture (microphone)\n", "mic.mp3")
-		fmt.Printf("  %-12s  Audio capture (system monitor)\n", "sys.mp3")
-		fmt.Printf("  %-12s  Mixed audio + screen capture %s\n", "record.mp4", cfg.Display)
+		for _, o := range rec.Outputs(m) {
+			fmt.Printf("  %-12s  %s\n", o.File, o.Description)
+		}
 		fmt.Println()
 		fmt.Printf("Directory: %s\n", m.Path)
 		fmt.Println()
