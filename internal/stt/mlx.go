@@ -51,7 +51,6 @@ func (p *mlxProvider) Transcribe(ctx context.Context, audioPath, language string
 		"--output-format", "json",
 		"--output-dir", tmpDir,
 		"--output-name", "out",
-		"--verbose", "false",
 	}
 	if language != "" {
 		args = append(args, "--language", language)

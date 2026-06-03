@@ -37,6 +37,9 @@ Repo notes for coding agents working in this project.
   - default path: `soundmix` -> `transcript`
   - dual-channel path: `transcript --dual-channel`
 
+- `tran devices list` (macOS)
+  Lists avfoundation audio input devices and the configured `AVFOUNDATION_MIC_INDEX`.
+
 ## Meeting directory layout
 
 ```text
@@ -78,7 +81,7 @@ internal/transcriber/ meeting transcription orchestration, dual-channel merge lo
 - `meeting.Detect()` checks for `source/`, not a top-level media file.
 - Mixed-audio chunking uses 192 kbps mono MP3 segments with `converter.SegmentTime == 963`.
 - Cloud providers (`openai`, `groq`) re-encode files over the upload limit to a temporary 64 kbps / 16 kHz mono MP3 before upload.
-- `STT_PROVIDER` has no default; `stt.NewProvider` fails fast at CLI startup (all subcommands) if unset or unknown.
+- `STT_PROVIDER` has no default; `stt.NewProvider` fails fast when running `transcript` or `process` (transcription step) if unset or unknown. `rec`, `soundmix`, and `devices list` do not require STT config.
 - Dual-channel transcript merging sorts segments by absolute timestamp and labels speakers as `Us` and `Them`.
 - On macOS, `tran rec` uses `audiotee` (ScreenCaptureKit) for system audio and `ffmpeg -f avfoundation`
   for microphone. `record.mp4` is not produced. Screen Recording and Microphone permissions must be
@@ -92,7 +95,7 @@ Config file: `~/.config/tran/config`
 
 | Field | Env var | Used by | Default |
 |-------|---------|---------|---------|
-| `STTProvider` | `STT_PROVIDER` | all | *(none — required)* |
+| `STTProvider` | `STT_PROVIDER` | transcript, process | *(none — required for transcription)* |
 | `OpenAIAPIKey` | `OPENAI_API_KEY` | openai | — |
 | `OpenAIModelSTT` | `OPENAI_MODEL_STT` | openai | `whisper-1` |
 | `GroqAPIKey` | `GROQ_API_KEY` | groq | — |
@@ -115,3 +118,5 @@ AVFOUNDATION_MIC_INDEX=0
 ```
 
 Environment variables override file values.
+
+User-facing guides: `docs/stt-providers.md`, `docs/macos.md`.

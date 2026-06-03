@@ -11,69 +11,34 @@ Supports two processing pipelines:
 
 ```bash
 make install   # installs to $GOPATH/bin/tran
+# or
+task install
 ```
 
-Requires `ffmpeg` and `pactl` (PulseAudio) on `$PATH`.
+**Linux:** requires `ffmpeg` and `pactl` (PulseAudio) on `$PATH`.
+
+**macOS:** requires `ffmpeg`, [audiotee](https://github.com/makeusabrew/audiotee),
+and permissions for Screen Recording + Microphone. See [docs/macos.md](docs/macos.md).
 
 ## Config
 
-`~/.config/tran/config` (godotenv format):
+`~/.config/tran/config` (godotenv format). Environment variables override file values.
+
+Minimal example:
 
 ```
-STT_PROVIDER=openai
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL_STT=whisper-1
 FFMPEG_BIN=ffmpeg
-DISPLAY=:0
-```
-
-Environment variables override file values.
-
-### Speech-to-text providers
-
-**Breaking change:** every `tran` command validates `STT_PROVIDER` at startup (including `rec` and `soundmix`). Setting `OPENAI_API_KEY` alone is no longer enough; pick a provider explicitly before running any subcommand.
-
-| Provider | Value | Required env vars |
-|---|---|---|
-| OpenAI | `openai` | `OPENAI_API_KEY` |
-| Groq | `groq` | `GROQ_API_KEY` |
-| whisper.cpp | `whispercpp` | `WHISPER_MODEL_PATH` (optional: `WHISPER_CPP_BIN`, default `whisper-cli`) |
-| MLX Whisper | `mlx` | macOS only; uses `uvx` (optional: `UVX_BIN`, `MLX_WHISPER_MODEL`) |
-
-**OpenAI:**
-
-```
 STT_PROVIDER=openai
 OPENAI_API_KEY=sk-...
-OPENAI_MODEL_STT=whisper-1
 ```
 
-**Groq** (OpenAI-compatible Whisper API; get a key at [console.groq.com/keys](https://console.groq.com/keys)):
+### Guides
 
-```
-STT_PROVIDER=groq
-GROQ_API_KEY=gsk_...
-GROQ_MODEL_STT=whisper-large-v3-turbo
-```
+- **[STT providers](docs/stt-providers.md)** — OpenAI, Groq, whisper.cpp, MLX: setup, switching, tests
+- **[macOS prerequisites](docs/macos.md)** — audiotee, permissions, microphone index, BT headphones
 
-**whisper.cpp** (local, any OS with binary + model):
-
-```
-STT_PROVIDER=whispercpp
-WHISPER_CPP_BIN=whisper-cli
-WHISPER_MODEL_PATH=/path/to/ggml-large-v3-turbo.bin
-```
-
-Install the binary with `brew install whisper-cpp` (or build from [ggml-org/whisper.cpp](https://github.com/ggml-org/whisper.cpp)), then download a ggml model (e.g. run `./models/download-ggml-model.sh large-v3-turbo` in the whisper.cpp repo).
-
-**MLX** (local on Apple Silicon via [uv](https://docs.astral.sh/uv/) / `uvx`; macOS only):
-
-```
-STT_PROVIDER=mlx
-MLX_WHISPER_MODEL=mlx-community/whisper-large-v3-turbo
-```
-
-Install uv: `curl -LsSf https://astral.sh/uv/install.sh | sh`. The first `tran transcript` run downloads the MLX packages via `uvx`.
+`STT_PROVIDER` is required only for `tran transcript` and `tran process`.
+`tran rec`, `tran soundmix`, and `tran devices list` do not need STT config.
 
 ## Meeting directory layout
 

@@ -39,6 +39,10 @@ var transcriptCmd = &cobra.Command{
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 
+		if err := ensureTranscriber(); err != nil {
+			return err
+		}
+
 		dualChannel, _ := cmd.Flags().GetBool("dual-channel")
 
 		fmt.Println("Transcribing...")

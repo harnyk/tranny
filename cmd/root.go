@@ -32,10 +32,10 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(initServices)
+	cobra.OnInitialize(initConfig)
 }
 
-func initServices() {
+func initConfig() {
 	var err error
 	cfg, err = config.Load()
 	if err != nil {
@@ -44,9 +44,16 @@ func initServices() {
 	}
 	rec = recorder.New(cfg)
 	conv = converter.New(cfg)
+}
+
+func ensureTranscriber() error {
+	if trans != nil {
+		return nil
+	}
+	var err error
 	trans, err = transcriber.New(cfg)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "transcriber:", err)
-		os.Exit(1)
+		return err
 	}
+	return nil
 }
