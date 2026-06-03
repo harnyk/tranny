@@ -25,12 +25,33 @@ tasks:
     cmds:
       - rm -f tran
 
+  test:
+    desc: "Run unit tests"
+    cmds:
+      - go test ./...
+
   test:integration:prepare:
     desc: "Generate TTS audio assets for integration tests (requires OpenAI API key)"
     cmds:
       - go run ./integration-test/prepare
 
   test:integration:
-    desc: "Run integration tests against real OpenAI API (requires prepared assets)"
+    desc: "Run all integration tests (each provider skips unless STT_PROVIDER matches config)"
     cmds:
-      - go test -v -tags integration ./integration-test/... -timeout 300s
+      - go test -v -tags integration ./integration-test/... -timeout 15m
+
+  test:integration:openai:
+    desc: "Run dual-channel integration test with OpenAI (requires OPENAI_API_KEY)"
+    cmds:
+      - STT_PROVIDER=openai go test -v -tags integration ./integration-test/... -run TestDualChannelTranscription_OpenAI -timeout 15m
+
+  test:integration:mlx:
+    desc: "Run dual-channel integration test with MLX (macOS, requires uvx)"
+    cmds:
+      - STT_PROVIDER=mlx go test -v -tags integration ./integration-test/... -run TestDualChannelTranscription_MLX -timeout 15m
+
+  test:all:
+    desc: "Run unit tests and integration tests"
+    cmds:
+      - task: test
+      - task: test:integration

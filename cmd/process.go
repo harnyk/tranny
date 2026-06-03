@@ -66,6 +66,9 @@ var processCmd = &cobra.Command{
 		}
 
 		if _, err := os.Stat(m.TranscriptPath()); os.IsNotExist(err) {
+			if err := ensureTranscriber(); err != nil {
+				return err
+			}
 			fmt.Println("Transcribing...")
 			var transcriptErr error
 			if dualChannel {

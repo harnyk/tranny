@@ -8,12 +8,19 @@ import (
 )
 
 type Config struct {
-	OpenAIAPIKey   string
-	STTModel       string
-	FFmpegBin      string
-	Display        string
-	AudioTeeBin    string
-	MicDeviceIndex string
+	OpenAIAPIKey      string
+	OpenAIModelSTT    string
+	GroqAPIKey        string
+	GroqModelSTT      string
+	STTProvider       string
+	FFmpegBin         string
+	Display           string
+	AudioTeeBin       string
+	MicDeviceIndex    string
+	WhisperCppBin     string
+	WhisperModelPath  string
+	UVXBin            string
+	MLXWhisperModel   string
 }
 
 func Load() (*Config, error) {
@@ -31,12 +38,19 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{
-		OpenAIAPIKey:   os.Getenv("OPENAI_API_KEY"),
-		STTModel:       envOrDefault("OPENAI_MODEL_STT", "whisper-1"),
-		FFmpegBin:      envOrDefault("FFMPEG_BIN", "ffmpeg"),
-		Display:        envOrDefault("DISPLAY", ":0"),
-		AudioTeeBin:    envOrDefault("AUDIOTEE_BIN", "audiotee"),
-		MicDeviceIndex: envOrDefault("AVFOUNDATION_MIC_INDEX", "0"),
+		OpenAIAPIKey:     os.Getenv("OPENAI_API_KEY"),
+		OpenAIModelSTT:   envOrDefault("OPENAI_MODEL_STT", "whisper-1"),
+		GroqAPIKey:       os.Getenv("GROQ_API_KEY"),
+		GroqModelSTT:     envOrDefault("GROQ_MODEL_STT", "whisper-large-v3-turbo"),
+		STTProvider:      os.Getenv("STT_PROVIDER"),
+		FFmpegBin:        envOrDefault("FFMPEG_BIN", "ffmpeg"),
+		Display:          envOrDefault("DISPLAY", ":0"),
+		AudioTeeBin:      envOrDefault("AUDIOTEE_BIN", "audiotee"),
+		MicDeviceIndex:   envOrDefault("AVFOUNDATION_MIC_INDEX", "0"),
+		WhisperCppBin:    envOrDefault("WHISPER_CPP_BIN", "whisper-cli"),
+		WhisperModelPath: os.Getenv("WHISPER_MODEL_PATH"),
+		UVXBin:           envOrDefault("UVX_BIN", "uvx"),
+		MLXWhisperModel:  envOrDefault("MLX_WHISPER_MODEL", "mlx-community/whisper-large-v3-turbo"),
 	}
 	return cfg, nil
 }

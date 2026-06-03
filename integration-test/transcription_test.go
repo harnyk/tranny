@@ -6,8 +6,10 @@ import (
 	"bufio"
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 	"unicode"
@@ -17,9 +19,11 @@ import (
 	"github.com/harnyk/tran/internal/transcriber"
 )
 
-// werThreshold is the maximum acceptable Word Error Rate for transcription output.
-// Whisper on clean TTS audio typically scores well under 5%; 15% gives ample headroom.
+// werThreshold is the maximum acceptable Word Error Rate for cloud STT on clean TTS audio.
 const werThreshold = 0.15
+
+// mlxWerThreshold is slightly higher: local mlx-whisper occasionally repeats a segment.
+const mlxWerThreshold = 0.25
 
 // referenceDialog mirrors the dialog hardcoded in prepare/main.go.
 // "Us" = mic channel (male), "Them" = sys channel (female).
@@ -39,14 +43,37 @@ var referenceDialog = []struct {
 	{"Them", "Agreed. Let's sync again on Thursday just to confirm. I'll send a calendar invite."},
 }
 
-func TestDualChannelTranscription(t *testing.T) {
+func TestDualChannelTranscription_OpenAI(t *testing.T) {
 	cfg, err := config.Load()
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
-	if cfg.OpenAIAPIKey == "" {
-		t.Skip("OPENAI_API_KEY not set")
+	if cfg.STTProvider != "openai" || cfg.OpenAIAPIKey == "" {
+		t.Skip("requires STT_PROVIDER=openai and OPENAI_API_KEY")
 	}
+	runDualChannelTranscription(t, cfg)
+}
+
+func TestDualChannelTranscription_MLX(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("mlx provider is macOS only")
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.STTProvider != "mlx" {
+		t.Skip("requires STT_PROVIDER=mlx")
+	}
+	if _, err := exec.LookPath(cfg.UVXBin); err != nil {
+		t.Skipf("requires %q in PATH (install uv: https://docs.astral.sh/uv/)", cfg.UVXBin)
+	}
+	runDualChannelTranscription(t, cfg)
+}
+
+func runDualChannelTranscription(t *testing.T, cfg *config.Config) {
+	t.Helper()
 
 	meetingPath, err := filepath.Abs("assets/meeting")
 	if err != nil {
@@ -55,13 +82,15 @@ func TestDualChannelTranscription(t *testing.T) {
 
 	m := &meeting.MeetingDir{Path: meetingPath}
 
-	// Remove generated transcript artifacts after the test run.
-	// The transcript/ dir is gitignored so this keeps the working tree clean.
+	os.RemoveAll(m.TranscriptDir())
 	t.Cleanup(func() {
 		os.RemoveAll(m.TranscriptDir())
 	})
 
-	tr := transcriber.New(cfg)
+	tr, err := transcriber.New(cfg)
+	if err != nil {
+		t.Fatalf("transcriber.New: %v", err)
+	}
 	if err := tr.TranscribeMeetingDualChannel(context.Background(), m, "en"); err != nil {
 		t.Fatalf("TranscribeMeetingDualChannel: %v", err)
 	}
@@ -71,10 +100,15 @@ func TestDualChannelTranscription(t *testing.T) {
 		t.Fatal("transcript is empty")
 	}
 
-	// Per-speaker WER implicitly validates speaker assignment: if channels were
-	// swapped, both WERs would spike because the wrong words would be under each label.
-	checkWER(t, lines, "Us")
-	checkWER(t, lines, "Them")
+	checkWER(t, lines, "Us", werThresholdFor(cfg))
+	checkWER(t, lines, "Them", werThresholdFor(cfg))
+}
+
+func werThresholdFor(cfg *config.Config) float64 {
+	if cfg.STTProvider == "mlx" {
+		return mlxWerThreshold
+	}
+	return werThreshold
 }
 
 // transcriptLine is one parsed line from transcript.txt.
@@ -105,9 +139,7 @@ func parseTranscript(t *testing.T, path string) []transcriptLine {
 	return lines
 }
 
-// checkWER concatenates all text for the given speaker from both reference and
-// hypothesis, then asserts Word Error Rate is within threshold.
-func checkWER(t *testing.T, lines []transcriptLine, speaker string) {
+func checkWER(t *testing.T, lines []transcriptLine, speaker string, threshold float64) {
 	t.Helper()
 
 	var refParts, hypParts []string
@@ -133,8 +165,8 @@ func checkWER(t *testing.T, lines []transcriptLine, speaker string) {
 	dist := editDistance(refWords, hypWords)
 	wer := float64(dist) / float64(len(refWords))
 	t.Logf("[%s] WER: %.1f%% (%d edits, ref=%d words, hyp=%d words)", speaker, wer*100, dist, len(refWords), len(hypWords))
-	if wer > werThreshold {
-		t.Errorf("[%s] WER %.1f%% exceeds threshold %.1f%%", speaker, wer*100, werThreshold*100)
+	if wer > threshold {
+		t.Errorf("[%s] WER %.1f%% exceeds threshold %.1f%%", speaker, wer*100, threshold*100)
 	}
 }
 
@@ -149,10 +181,8 @@ func normalize(s string) string {
 	return b.String()
 }
 
-// editDistance computes Levenshtein distance between two string slices (word or token sequences).
 func editDistance(a, b []string) int {
 	m, n := len(a), len(b)
-	// Use two rows to keep memory O(n).
 	prev := make([]int, n+1)
 	curr := make([]int, n+1)
 	for j := 0; j <= n; j++ {

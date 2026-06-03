@@ -11,22 +11,34 @@ Supports two processing pipelines:
 
 ```bash
 make install   # installs to $GOPATH/bin/tran
+# or
+task install
 ```
 
-Requires `ffmpeg` and `pactl` (PulseAudio) on `$PATH`.
+**Linux:** requires `ffmpeg` and `pactl` (PulseAudio) on `$PATH`.
+
+**macOS:** requires `ffmpeg`, [audiotee](https://github.com/makeusabrew/audiotee),
+and permissions for Screen Recording + Microphone. See [docs/macos.md](docs/macos.md).
 
 ## Config
 
-`~/.config/tran/config` (godotenv format):
+`~/.config/tran/config` (godotenv format). Environment variables override file values.
+
+Minimal example:
 
 ```
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL_STT=whisper-1
 FFMPEG_BIN=ffmpeg
-DISPLAY=:0
+STT_PROVIDER=openai
+OPENAI_API_KEY=sk-...
 ```
 
-Environment variables override file values.
+### Guides
+
+- **[STT providers](docs/stt-providers.md)** — OpenAI, Groq, whisper.cpp, MLX: setup, switching, tests
+- **[macOS prerequisites](docs/macos.md)** — audiotee, permissions, microphone index, BT headphones
+
+`STT_PROVIDER` is required only for `tran transcript` and `tran process`.
+`tran rec`, `tran soundmix`, and `tran devices list` do not need STT config.
 
 ## Meeting directory layout
 
@@ -81,7 +93,7 @@ tran soundmix --mic-volume 6 --sys-volume -3
 ### `tran transcript`
 
 Run from the meeting directory. Sends each `mix/record-NNN.mp3` chunk to the
-OpenAI Whisper API and writes `transcript/transcript.txt` with segment-level
+configured STT provider and writes `transcript/transcript.txt` with segment-level
 timestamps.
 
 With `--dual-channel` / `-d`, skips `mix/` entirely: `source/mic.mp3` and

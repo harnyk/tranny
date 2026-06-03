@@ -1,9 +1,6 @@
 package transcriber
 
 import (
-	"bytes"
-	"io"
-	"mime/multipart"
 	"testing"
 )
 
@@ -40,57 +37,4 @@ func TestNormalizeLanguage(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestWriteTranscriptionFields(t *testing.T) {
-	t.Run("explicit language", func(t *testing.T) {
-		fields := transcriptionFields(t, "whisper-1", "en")
-		if got := fields["model"]; got != "whisper-1" {
-			t.Fatalf("model field = %q, want %q", got, "whisper-1")
-		}
-		if got := fields["language"]; got != "en" {
-			t.Fatalf("language field = %q, want %q", got, "en")
-		}
-	})
-
-	t.Run("auto sends empty language", func(t *testing.T) {
-		fields := transcriptionFields(t, "whisper-1", "")
-		if got := fields["language"]; got != "" {
-			t.Fatalf("language field = %q, want empty string", got)
-		}
-	})
-}
-
-func transcriptionFields(t *testing.T, model string, language string) map[string]string {
-	t.Helper()
-
-	var body bytes.Buffer
-	w := multipart.NewWriter(&body)
-	if err := writeTranscriptionFields(w, model, language); err != nil {
-		t.Fatalf("writeTranscriptionFields() error = %v", err)
-	}
-	if err := w.Close(); err != nil {
-		t.Fatalf("writer.Close() error = %v", err)
-	}
-
-	reader := multipart.NewReader(&body, w.Boundary())
-	fields := make(map[string]string)
-
-	for {
-		part, err := reader.NextPart()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			t.Fatalf("reader.NextPart() error = %v", err)
-		}
-
-		value, err := io.ReadAll(part)
-		if err != nil {
-			t.Fatalf("io.ReadAll() error = %v", err)
-		}
-		fields[part.FormName()] = string(value)
-	}
-
-	return fields
 }
